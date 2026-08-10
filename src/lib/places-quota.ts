@@ -17,8 +17,16 @@ function monthKey(d = new Date()) {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+function quotaDir() {
+  // Vercel serverless only allows writes under /tmp
+  if (process.env.VERCEL) {
+    return path.join("/tmp", "eat-what-quota");
+  }
+  return path.join(process.cwd(), ".data");
+}
+
 function quotaPath() {
-  return path.join(process.cwd(), ".data", "places-quota.json");
+  return path.join(quotaDir(), "places-quota.json");
 }
 
 export function getMonthlyCap(): number {
