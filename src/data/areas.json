@@ -1,0 +1,22 @@
+[
+  { "id": "orchard", "name": "Orchard", "lat": 1.3048, "lng": 103.8318 },
+  { "id": "tiong-bahru", "name": "Tiong Bahru", "lat": 1.2863, "lng": 103.827 },
+  { "id": "joo-chiat", "name": "Joo Chiat", "lat": 1.3076, "lng": 103.903 },
+  { "id": "cbd", "name": "CBD", "lat": 1.2815, "lng": 103.85 },
+  { "id": "chinatown", "name": "Chinatown", "lat": 1.283, "lng": 103.844 },
+  { "id": "little-india", "name": "Little India", "lat": 1.3066, "lng": 103.8518 },
+  { "id": "bugis", "name": "Bugis", "lat": 1.3006, "lng": 103.8554 },
+  { "id": "holland-village", "name": "Holland Village", "lat": 1.3111, "lng": 103.796 },
+  { "id": "tanjong-pagar", "name": "Tanjong Pagar", "lat": 1.2764, "lng": 103.845 },
+  { "id": "pasir-panjang", "name": "Pasir Panjang", "lat": 1.2775, "lng": 103.7925 },
+  { "id": "east-coast", "name": "East Coast", "lat": 1.304, "lng": 103.912 },
+  { "id": "geylang", "name": "Geylang", "lat": 1.3201, "lng": 103.891 },
+  { "id": "marina-bay", "name": "Marina Bay", "lat": 1.2834, "lng": 103.8607 },
+  { "id": "novena", "name": "Novena", "lat": 1.3204, "lng": 103.8438 },
+  { "id": "tampines", "name": "Tampines", "lat": 1.3526, "lng": 103.9447 },
+  { "id": "jurong-east", "name": "Jurong East", "lat": 1.3331, "lng": 103.7436 },
+  { "id": "clarke-quay", "name": "Clarke Quay", "lat": 1.2905, "lng": 103.8465 },
+  { "id": "katong", "name": "Katong", "lat": 1.3039, "lng": 103.901 },
+  { "id": "dempsey", "name": "Dempsey", "lat": 1.3045, "lng": 103.81 },
+  { "id": "bukit-panjang", "name": "Bukit Panjang", "lat": 1.3786, "lng": 103.7622 }
+]
