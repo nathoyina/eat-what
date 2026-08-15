@@ -2,7 +2,6 @@
   { "id": "orchard", "name": "Orchard", "lat": 1.3048, "lng": 103.8318 },
   { "id": "tiong-bahru", "name": "Tiong Bahru", "lat": 1.2863, "lng": 103.827 },
   { "id": "joo-chiat", "name": "Joo Chiat", "lat": 1.3076, "lng": 103.903 },
-  { "id": "cbd", "name": "CBD", "lat": 1.2815, "lng": 103.85 },
   { "id": "chinatown", "name": "Chinatown", "lat": 1.283, "lng": 103.844 },
   { "id": "little-india", "name": "Little India", "lat": 1.3066, "lng": 103.8518 },
   { "id": "bugis", "name": "Bugis", "lat": 1.3006, "lng": 103.8554 },

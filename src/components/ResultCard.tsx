@@ -1,7 +1,7 @@
 "use client";
 
 import { googleMapsUrl } from "@/lib/restaurants";
-import { PRICE_LABELS, type Restaurant } from "@/lib/types";
+import { VENUE_LABELS, type Restaurant } from "@/lib/types";
 
 type Props = {
   restaurant: Restaurant;
@@ -34,14 +34,12 @@ export function ResultCard({
 
       <dl className="grid grid-cols-2 gap-3 text-sm">
         <div>
-          <dt className="text-ink-muted">Cuisine</dt>
-          <dd className="font-semibold">{restaurant.cuisine}</dd>
+          <dt className="text-ink-muted">Type</dt>
+          <dd className="font-semibold">{VENUE_LABELS[restaurant.venueType]}</dd>
         </div>
         <div>
-          <dt className="text-ink-muted">Price</dt>
-          <dd className="font-semibold">
-            {PRICE_LABELS[restaurant.priceLevel]}
-          </dd>
+          <dt className="text-ink-muted">Cuisine</dt>
+          <dd className="font-semibold">{restaurant.cuisine}</dd>
         </div>
         <div>
           <dt className="text-ink-muted">Area</dt>

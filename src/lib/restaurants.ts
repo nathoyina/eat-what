@@ -28,11 +28,7 @@ export function filterRestaurants(
 ): Restaurant[] {
   let results = [...catalog];
 
-  if (filters.priceLevel != null && filters.priceLevel !== 0) {
-    results = results.filter((r) => r.priceLevel === filters.priceLevel);
-  }
-
-  // Cuisine resolved server-side via Google includedPrimaryTypes
+  // Cuisine + venue resolved server-side via Google types / text search
 
   const radiusKm = REACH_KM[filters.reach];
 

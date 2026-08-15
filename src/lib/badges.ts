@@ -28,9 +28,9 @@ export const BADGES: BadgeDef[] = [
   },
   {
     id: "budget-hero",
-    name: "Budget Hero",
-    description: "Win a $ spot",
-    icon: "💸",
+    name: "Hawker Hero",
+    description: "Land on a hawker / food court",
+    icon: "🍜",
   },
   {
     id: "area-hopper",
@@ -85,7 +85,7 @@ export function evaluateSpinBadges(
   tryUnlock("first-spin", next.totalSpins >= 1);
   tryUnlock("indecisive", next.sessionSpins >= 5);
   tryUnlock("globe-trotter", next.cuisinesLanded.length >= 3);
-  tryUnlock("budget-hero", winner.priceLevel === 1);
+  tryUnlock("budget-hero", winner.venueType === "hawker");
   tryUnlock("area-hopper", next.areasSpun.length >= 3);
 
   return { progress: next, newlyUnlocked };

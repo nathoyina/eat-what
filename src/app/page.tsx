@@ -36,7 +36,7 @@ import { useCallback, useMemo, useState } from "react";
 
 const defaultFilters: Filters = {
   cuisine: null,
-  priceLevel: null,
+  venueType: null,
   reach: null,
 };
 
@@ -108,7 +108,7 @@ export default function HomePage() {
       location,
       filters: {
         cuisine: filters.cuisine,
-        priceLevel: filters.priceLevel,
+        venueType: filters.venueType,
         reach: filters.reach,
       },
       token: Date.now(),
@@ -152,7 +152,7 @@ export default function HomePage() {
       placeId: winner.placeId,
       name: winner.name,
       cuisine: winner.cuisine,
-      priceLevel: winner.priceLevel,
+      venueType: winner.venueType,
       address: winner.address,
       googleMapsQuery: winner.googleMapsQuery,
       googleMapsUri: winner.googleMapsUri,
@@ -243,7 +243,7 @@ export default function HomePage() {
               <div>
                 <h2 className="font-display text-xl font-semibold">Spin it</h2>
                 <p className="mt-1 text-sm text-ink-muted">
-                  Up to 10 real spots. Open any winner straight in Google Maps.
+                  Full names on a vertical reel — open any winner in Google Maps.
                 </p>
               </div>
 
@@ -257,7 +257,7 @@ export default function HomePage() {
                     Not enough spots for a proper spin.
                   </p>
                   <p className="mt-1 text-sm text-ink-muted">
-                    Try wider reach, Any price, or a different cuisine.
+                    Try wider reach or a different spot type / cuisine.
                   </p>
                 </div>
               ) : (

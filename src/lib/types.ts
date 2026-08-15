@@ -5,13 +5,16 @@ export type Area = {
   lng: number;
 };
 
+export type VenueType = "any" | "hawker" | "cafe" | "restaurant";
+
 export type Restaurant = {
   id: string;
   placeId?: string;
   name: string;
   area: string;
   cuisine: string;
-  priceLevel: 1 | 2 | 3 | 4;
+  /** Venue category inferred from Google types / name */
+  venueType: Exclude<VenueType, "any">;
   lat: number;
   lng: number;
   address: string;
@@ -24,8 +27,8 @@ export type Reach = "walk" | "short" | "anywhere";
 export type Filters = {
   /** null = not chosen yet; "any" or a cuisine label */
   cuisine: string | null;
-  /** null = not chosen; 0 = any price; 1–4 = $–$$$$ */
-  priceLevel: number | null;
+  /** null = not chosen yet; "any" | hawker | cafe | restaurant */
+  venueType: VenueType | null;
   /** null = not chosen yet */
   reach: Reach | null;
 };
@@ -33,14 +36,14 @@ export type Filters = {
 export function filtersComplete(filters: Filters): filters is CompleteFilters {
   return (
     filters.cuisine !== null &&
-    filters.priceLevel !== null &&
+    filters.venueType !== null &&
     filters.reach !== null
   );
 }
 
 export type CompleteFilters = {
   cuisine: string;
-  priceLevel: number;
+  venueType: VenueType;
   reach: Reach;
 };
 
@@ -54,7 +57,7 @@ export type SavedSpot = {
   placeId?: string;
   name: string;
   cuisine: string;
-  priceLevel: number;
+  venueType?: Exclude<VenueType, "any">;
   address: string;
   googleMapsQuery: string;
   googleMapsUri?: string;
@@ -84,4 +87,8 @@ export const REACH_KM: Record<Reach, number | null> = {
   anywhere: null,
 };
 
-export const PRICE_LABELS = ["", "$", "$$", "$$$", "$$$$"] as const;
+export const VENUE_LABELS: Record<Exclude<VenueType, "any">, string> = {
+  hawker: "Hawker / food court",
+  cafe: "Cafe",
+  restaurant: "Restaurant",
+};

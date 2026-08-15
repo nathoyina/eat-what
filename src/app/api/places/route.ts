@@ -1,11 +1,18 @@
 import { areaName, areas } from "@/lib/restaurants";
-import { fetchNearbyFoodPlaces, SALAD_SEARCH_API_COST } from "@/lib/google-places";
-import { cuisineUsesTextSearch } from "@/lib/cuisine-types";
+import {
+  fetchNearbyFoodPlaces,
+  HAWKER_SEARCH_API_COST,
+  SALAD_SEARCH_API_COST,
+} from "@/lib/google-places";
+import {
+  cuisineUsesTextSearch,
+  venueUsesTextSearch,
+} from "@/lib/cuisine-types";
 import {
   getQuotaStatus,
   tryConsumeQuota,
 } from "@/lib/places-quota";
-import { REACH_KM, type Restaurant } from "@/lib/types";
+import { REACH_KM, type Restaurant, type VenueType } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -23,12 +30,26 @@ function quotaPayload(quota: Awaited<ReturnType<typeof getQuotaStatus>>) {
   };
 }
 
+function parseVenue(raw: string | null): VenueType {
+  if (raw === "hawker" || raw === "cafe" || raw === "restaurant") return raw;
+  return "any";
+}
+
+function apiCost(cuisines: string[], venue: VenueType): number {
+  if (venueUsesTextSearch(venue)) return HAWKER_SEARCH_API_COST;
+  if (cuisines.some((c) => cuisineUsesTextSearch([c]))) {
+    return SALAD_SEARCH_API_COST;
+  }
+  return 1;
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const areaId = url.searchParams.get("areaId");
   const latParam = url.searchParams.get("lat");
   const lngParam = url.searchParams.get("lng");
   const reach = url.searchParams.get("reach") ?? "short";
+  const venue = parseVenue(url.searchParams.get("venue"));
   const cuisinesParam = url.searchParams.get("cuisines") ?? "";
   const cuisines = cuisinesParam
     ? cuisinesParam.split(",").map((c) => c.trim()).filter(Boolean)
@@ -65,7 +86,7 @@ export async function GET(req: Request) {
     Math.round((radiusKm ?? 8) * 1000),
   );
 
-  const cacheKey = `${areaKey}:${radiusMeters}:${cuisines.sort().join("|") || "all"}`;
+  const cacheKey = `${areaKey}:${radiusMeters}:${venue}:${cuisines.sort().join("|") || "all"}`;
   const cached = cache.get(cacheKey);
   const quota = await getQuotaStatus();
 
@@ -94,9 +115,7 @@ export async function GET(req: Request) {
     });
   }
 
-  const consumed = await tryConsumeQuota(
-    cuisines.some((c) => cuisineUsesTextSearch([c])) ? SALAD_SEARCH_API_COST : 1,
-  );
+  const consumed = await tryConsumeQuota(apiCost(cuisines, venue));
   if (!consumed.allowed) {
     return Response.json(
       {
@@ -119,17 +138,24 @@ export async function GET(req: Request) {
       areaId: resolvedAreaId,
       areaName: resolvedAreaName ?? areaName(resolvedAreaId),
       cuisines,
+      venueType: venue,
     });
 
     if (!places.length) {
+      const venueLabel =
+        venue === "any"
+          ? ""
+          : venue === "hawker"
+            ? "hawker / food court "
+            : `${venue} `;
       return Response.json({
         places: [],
         source: "places",
         area: areaKey,
         quota: quotaPayload(consumed),
         message: cuisines.length
-          ? `No ${cuisines.join(" / ")} spots found nearby. Try wider reach or another cuisine.`
-          : "No food places found nearby. Try a wider reach.",
+          ? `No ${venueLabel}${cuisines.join(" / ")} spots found nearby. Try wider reach or another filter.`
+          : `No ${venueLabel || "food "}places found nearby. Try a wider reach.`,
       });
     }
 

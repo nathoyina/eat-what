@@ -26,14 +26,15 @@ const memoryCache = new Map<string, Restaurant[]>();
 
 function cacheKey(request: SearchRequest): string | null {
   const { location, filters } = request;
-  const cuisineKey = filters.cuisine === "any" ? "any" : filters.cuisine ?? "none";
-  const priceKey = filters.priceLevel ?? "none";
+  const cuisineKey =
+    filters.cuisine === "any" ? "any" : (filters.cuisine ?? "none");
+  const venueKey = filters.venueType ?? "none";
   if (location.type === "area") {
-    return `area:${location.areaId}:${filters.reach}:${cuisineKey}:${priceKey}`;
+    return `area:${location.areaId}:${filters.reach}:${cuisineKey}:${venueKey}`;
   }
   if (location.type === "geo") {
     const area = nearestArea(location.lat, location.lng, areas);
-    return `geo:${area.id}:${location.lat.toFixed(3)}:${location.lng.toFixed(3)}:${filters.reach}:${cuisineKey}:${priceKey}`;
+    return `geo:${area.id}:${location.lat.toFixed(3)}:${location.lng.toFixed(3)}:${filters.reach}:${cuisineKey}:${venueKey}`;
   }
   return null;
 }
@@ -42,6 +43,7 @@ function buildUrl(request: SearchRequest): string | null {
   const { location, filters } = request;
   const params = new URLSearchParams();
   params.set("reach", filters.reach);
+  params.set("venue", filters.venueType);
   if (filters.cuisine && filters.cuisine !== "any") {
     params.set("cuisines", filters.cuisine);
   }
@@ -101,7 +103,13 @@ export function usePlaces(request: SearchRequest | null): State & {
 
     const controller = new AbortController();
     queueMicrotask(() =>
-      setState({ status: "loading", places: [], message: null, source: null, quota: null }),
+      setState({
+        status: "loading",
+        places: [],
+        message: null,
+        source: null,
+        quota: null,
+      }),
     );
 
     fetch(url, { signal: controller.signal })

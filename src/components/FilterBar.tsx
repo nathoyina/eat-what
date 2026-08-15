@@ -1,6 +1,6 @@
 "use client";
 
-import { FILTER_CUISINES } from "@/lib/cuisine-types";
+import { FILTER_CUISINES, FILTER_VENUES } from "@/lib/cuisine-types";
 import {
   filtersComplete,
   type Filters,
@@ -23,14 +23,6 @@ const REACH_OPTIONS: { id: Reach; label: string; hint: string }[] = [
   { id: "anywhere", label: "Anywhere", hint: "area / all" },
 ];
 
-const PRICE_OPTIONS: { level: number; label: string }[] = [
-  { level: 0, label: "Any" },
-  { level: 1, label: "$" },
-  { level: 2, label: "$$" },
-  { level: 3, label: "$$$" },
-  { level: 4, label: "$$$$" },
-];
-
 export function FilterBar({
   filters,
   onChange,
@@ -48,7 +40,7 @@ export function FilterBar({
         <div>
           <h2 className="font-display text-xl font-semibold">Filters</h2>
           <p className="mt-1 text-sm text-ink-muted">
-            Pick reach, price & cuisine, then find spots (uses 1 Google API call).
+            Pick reach, spot type & cuisine, then find spots.
           </p>
         </div>
         {hasSearched && (
@@ -66,19 +58,19 @@ export function FilterBar({
           {REACH_OPTIONS.map((opt) => {
             const on = filters.reach === opt.id;
             return (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => onChange({ ...filters, reach: opt.id })}
-              className={`rounded-xl px-2 py-2.5 text-center transition ${
-                on
-                  ? "bg-coral text-white"
-                  : "border border-border bg-bg-soft text-ink-muted hover:text-ink"
-              }`}
-            >
-              <span className="block text-sm font-bold">{opt.label}</span>
-              <span className="block text-[11px] opacity-80">{opt.hint}</span>
-            </button>
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => onChange({ ...filters, reach: opt.id })}
+                className={`rounded-xl px-2 py-2.5 text-center transition ${
+                  on
+                    ? "bg-coral text-white"
+                    : "border border-border bg-bg-soft text-ink-muted hover:text-ink"
+                }`}
+              >
+                <span className="block text-sm font-bold">{opt.label}</span>
+                <span className="block text-[11px] opacity-80">{opt.hint}</span>
+              </button>
             );
           })}
         </div>
@@ -86,23 +78,24 @@ export function FilterBar({
 
       <div>
         <p className="mb-2 text-xs font-bold uppercase tracking-wider text-ink-muted">
-          Price <span className="text-coral">*</span>
+          Spot type <span className="text-coral">*</span>
         </p>
-        <div className="flex flex-wrap gap-2">
-          {PRICE_OPTIONS.map(({ level, label }) => {
-            const on = filters.priceLevel === level;
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {FILTER_VENUES.map((opt) => {
+            const on = filters.venueType === opt.id;
             return (
               <button
-                key={level}
+                key={opt.id}
                 type="button"
-                onClick={() => onChange({ ...filters, priceLevel: level })}
-                className={`rounded-full px-3 py-1.5 text-sm font-bold transition ${
+                onClick={() => onChange({ ...filters, venueType: opt.id })}
+                className={`rounded-xl px-2 py-2.5 text-center transition ${
                   on
                     ? "bg-lime text-white"
                     : "border border-border bg-bg-soft text-ink-muted hover:text-ink"
                 }`}
               >
-                {label}
+                <span className="block text-sm font-bold">{opt.label}</span>
+                <span className="block text-[11px] opacity-80">{opt.hint}</span>
               </button>
             );
           })}
@@ -143,6 +136,12 @@ export function FilterBar({
             );
           })}
         </div>
+        {filters.venueType === "hawker" && filters.cuisine !== "any" && (
+          <p className="mt-2 text-xs text-ink-muted">
+            Hawker search finds food centres nearby — cuisine filter is ignored
+            for hawkers.
+          </p>
+        )}
       </div>
 
       <button
@@ -156,7 +155,7 @@ export function FilterBar({
 
       {!ready && (
         <p className="text-center text-sm text-ink-muted">
-          Choose reach, price, and cuisine to continue.
+          Choose reach, spot type, and cuisine to continue.
         </p>
       )}
     </section>

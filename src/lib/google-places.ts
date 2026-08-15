@@ -1,9 +1,11 @@
 import {
   DEFAULT_INCLUDED_TYPES,
   cuisineUsesTextSearch,
-  googleTypesForCuisines,
+  googleTypesForFilters,
+  venueFromPlace,
+  venueUsesTextSearch,
 } from "./cuisine-types";
-import type { Restaurant } from "./types";
+import type { Restaurant, VenueType } from "./types";
 
 type PlacesNearbyResponse = {
   places?: Array<{
@@ -80,6 +82,9 @@ const NON_SALAD_PRIMARY_TYPES = new Set([
 const SALAD_NAME_PATTERN =
   /\b(salad|salads|grain|grains|acai|poke|super\s*green|stuff'?d|stuffed|green\s+(box|elephant)|autobus|harvest|tossed|saladthyme|salad\s*crunch|salad\s*stop|salad\s*box|just\s*salad|healthy\s*(kitchen|eats|bowl)|grain\s*bowl|salad\s*bowl)\b/i;
 
+const HAWKER_NAME_PATTERN =
+  /\b(hawker|food\s*centre|food\s*center|food\s*court|kopitiam|makan\s*place)\b/i;
+
 function isSaladPlace(p: PlaceResult): boolean {
   const name = p.displayName?.text ?? "";
   const primary = p.primaryType ?? "";
@@ -110,6 +115,14 @@ function isSaladPlace(p: PlaceResult): boolean {
   if (SALAD_NAME_PATTERN.test(name)) return true;
 
   return false;
+}
+
+function isHawkerPlace(p: PlaceResult): boolean {
+  const name = p.displayName?.text ?? "";
+  const primary = p.primaryType ?? "";
+  const types = p.types ?? [];
+  if (primary === "food_court" || types.includes("food_court")) return true;
+  return HAWKER_NAME_PATTERN.test(name);
 }
 
 /** Pro-tier fields only — avoids Enterprise SKU (priceLevel, rating, etc.). */
@@ -154,6 +167,7 @@ const TYPE_CUISINE: Record<string, string> = {
   coffee_shop: "Cafe",
   bakery: "Cafe",
   tea_house: "Cafe",
+  food_court: "Hawker",
   salad_shop: "Salad",
   acai_shop: "Salad",
   vegetarian_restaurant: "Salad",
@@ -192,6 +206,7 @@ function placesToRestaurants(
     selected: string[];
     forceCuisine?: string;
     textSearch?: boolean;
+    venueFilter?: VenueType;
   },
 ): Restaurant[] {
   const byId = new Map<string, Restaurant>();
@@ -208,6 +223,9 @@ function placesToRestaurants(
     if (opts.textSearch && opts.forceCuisine === "Salad" && !isSaladPlace(p)) {
       continue;
     }
+    if (opts.venueFilter === "hawker" && !isHawkerPlace(p)) {
+      continue;
+    }
 
     const lat = p.location?.latitude;
     const lng = p.location?.longitude;
@@ -218,10 +236,26 @@ function placesToRestaurants(
     const placeId = p.id;
     const cuisine =
       opts.forceCuisine ?? cuisineFromPlace(p, opts.selected);
+    const venueType = venueFromPlace({
+      primaryType: p.primaryType,
+      types: p.types,
+      name,
+    });
+
+    if (
+      opts.venueFilter &&
+      opts.venueFilter !== "any" &&
+      opts.venueFilter !== "hawker" &&
+      venueType !== opts.venueFilter
+    ) {
+      continue;
+    }
 
     if (
       opts.selected.length > 0 &&
       !opts.forceCuisine &&
+      opts.venueFilter !== "hawker" &&
+      opts.venueFilter !== "cafe" &&
       !opts.selected.some(
         (c) => c.toLowerCase() === cuisine.toLowerCase(),
       )
@@ -235,7 +269,7 @@ function placesToRestaurants(
       name,
       area: opts.areaId,
       cuisine,
-      priceLevel: 2,
+      venueType,
       lat,
       lng,
       address,
@@ -281,6 +315,7 @@ async function fetchSaladViaTextSearch(opts: {
   radiusMeters: number;
   areaId: string;
   areaName?: string;
+  venueType?: VenueType;
 }): Promise<Restaurant[]> {
   const locationLabel = opts.areaName?.trim() || "near me";
   const circle = {
@@ -319,16 +354,66 @@ async function fetchSaladViaTextSearch(opts: {
     selected: ["Salad"],
     forceCuisine: "Salad",
     textSearch: true,
+    venueFilter: opts.venueType ?? "any",
   });
 }
 
-/** Salad lookup uses 2 Places API calls (nearby types + text search). */
+async function fetchHawkerViaTextSearch(opts: {
+  apiKey: string;
+  lat: number;
+  lng: number;
+  radiusMeters: number;
+  areaId: string;
+  areaName?: string;
+}): Promise<Restaurant[]> {
+  const locationLabel = opts.areaName?.trim() || "near me";
+  const circle = {
+    center: {
+      latitude: opts.lat,
+      longitude: opts.lng,
+    },
+    radius: opts.radiusMeters,
+  };
+
+  const [nearbyData, textData] = await Promise.all([
+    callPlacesApi(opts.apiKey, "searchNearby", {
+      includedPrimaryTypes: ["food_court"],
+      maxResultCount: 20,
+      rankPreference: "DISTANCE",
+      languageCode: "en",
+      regionCode: "SG",
+      locationRestriction: { circle },
+    }),
+    callPlacesApi(opts.apiKey, "searchText", {
+      textQuery: `hawker centre food court ${locationLabel} Singapore`,
+      maxResultCount: 20,
+      languageCode: "en",
+      regionCode: "SG",
+      locationBias: { circle },
+    }),
+  ]);
+
+  const merged = new Map<string, PlaceResult>();
+  for (const p of [...(nearbyData.places ?? []), ...(textData.places ?? [])]) {
+    if (p.id) merged.set(p.id, p);
+  }
+
+  return placesToRestaurants([...merged.values()], {
+    areaId: opts.areaId,
+    selected: [],
+    forceCuisine: "Hawker",
+    textSearch: true,
+    venueFilter: "hawker",
+  });
+}
+
+/** Salad / hawker lookups use 2 Places API calls each. */
 export const SALAD_SEARCH_API_COST = 2;
+export const HAWKER_SEARCH_API_COST = 2;
 
 /**
- * One Places Search Pro call per fetch (free tier: 5,000/month).
- * When cuisines are selected, uses includedPrimaryTypes so results match.
- * Salad uses Text Search because many salad spots are tagged as generic restaurant.
+ * One Places Search Pro call per fetch (free tier: 5,000/month),
+ * except salad/hawker which use nearby + text (2 calls).
  */
 export async function fetchNearbyFoodPlaces(opts: {
   apiKey: string;
@@ -338,56 +423,74 @@ export async function fetchNearbyFoodPlaces(opts: {
   areaId: string;
   areaName?: string;
   cuisines?: string[];
+  venueType?: VenueType;
 }): Promise<Restaurant[]> {
   const selected = opts.cuisines ?? [];
+  const venue = opts.venueType ?? "any";
 
-  if (cuisineUsesTextSearch(selected)) {
-    return fetchSaladViaTextSearch(opts);
+  if (cuisineUsesTextSearch(selected) && venue !== "hawker") {
+    return fetchSaladViaTextSearch({ ...opts, venueType: venue });
   }
 
-  const primaryTypes = googleTypesForCuisines(selected);
-  const rankPreference =
-    primaryTypes.length > 0 ? ("DISTANCE" as const) : ("POPULARITY" as const);
+  if (venueUsesTextSearch(venue)) {
+    return fetchHawkerViaTextSearch(opts);
+  }
 
-  const body =
-    primaryTypes.length > 0
-      ? {
-          includedPrimaryTypes: primaryTypes.slice(0, 50),
-          maxResultCount: 20,
-          rankPreference,
-          languageCode: "en",
-          regionCode: "SG",
-          locationRestriction: {
-            circle: {
-              center: {
-                latitude: opts.lat,
-                longitude: opts.lng,
-              },
-              radius: opts.radiusMeters,
+  const primaryTypes = googleTypesForFilters(
+    selected[0],
+    venue,
+  );
+  const rankPreference =
+    primaryTypes.length > 0 &&
+    !(venue === "any" && selected.length === 0)
+      ? ("DISTANCE" as const)
+      : ("POPULARITY" as const);
+
+  const usePrimary =
+    selected.length > 0 || venue === "cafe" || venue === "restaurant";
+
+  const body = usePrimary
+    ? {
+        includedPrimaryTypes: (primaryTypes.length
+          ? primaryTypes
+          : [...DEFAULT_INCLUDED_TYPES]
+        ).slice(0, 50),
+        maxResultCount: 20,
+        rankPreference,
+        languageCode: "en",
+        regionCode: "SG",
+        locationRestriction: {
+          circle: {
+            center: {
+              latitude: opts.lat,
+              longitude: opts.lng,
             },
+            radius: opts.radiusMeters,
           },
-        }
-      : {
-          includedTypes: [...DEFAULT_INCLUDED_TYPES],
-          maxResultCount: 20,
-          rankPreference,
-          languageCode: "en",
-          regionCode: "SG",
-          locationRestriction: {
-            circle: {
-              center: {
-                latitude: opts.lat,
-                longitude: opts.lng,
-              },
-              radius: opts.radiusMeters,
+        },
+      }
+    : {
+        includedTypes: [...DEFAULT_INCLUDED_TYPES],
+        maxResultCount: 20,
+        rankPreference,
+        languageCode: "en",
+        regionCode: "SG",
+        locationRestriction: {
+          circle: {
+            center: {
+              latitude: opts.lat,
+              longitude: opts.lng,
             },
+            radius: opts.radiusMeters,
           },
-        };
+        },
+      };
 
   const data = await callPlacesApi(opts.apiKey, "searchNearby", body);
 
   return placesToRestaurants(data.places ?? [], {
     areaId: opts.areaId,
     selected,
+    venueFilter: venue,
   });
 }
