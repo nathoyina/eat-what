@@ -160,13 +160,24 @@ const MALL_NAME_PATTERN =
 
 /** Drink / snack shop names Google often mistags as restaurant/cafe. */
 const SNACK_OR_DRINK_NAME_PATTERN =
-  /\b(bubble\s*tea|boba|milk\s*tea|ice\s*cream|gelato|yogurt|yoghurt|dessert|smoothie|juice\s*bar|tea\s*(shop|house|bar)|coffee\s*(bean|roaster)|wine\s*bar|cocktail\s*bar|liquor|snack\s*bar|donut|doughnut|pastry|cake\s*shop|candy|chocolat)\b/i;
+  /\b(bubble\s*tea|boba|bbt|milk\s*tea|fruit\s*tea|ice\s*cream|gelato|yogurt|yoghurt|dessert|smoothie|juice\s*bar|tea\s*(shop|house|bar)|coffee\s*(bean|roaster)|wine\s*bar|cocktail\s*bar|liquor|snack\s*bar|donut|doughnut|pastry|cake\s*shop|candy|chocolat)\b/i;
+
+/**
+ * SG drink / bubble-tea chains whose names don't say “tea” / “boba”.
+ * Google usually tags these as cafe or restaurant.
+ */
+const DRINK_CHAIN_NAME_PATTERN =
+  /\b(playmade|play\s*made|丸作|liho|li\s*ho|gong\s*cha|gongcha|koi\s*th[eé]|koi\b|each\s*a\s*cup|sharetea|share\s*tea|the\s*alley|tiger\s*sugar|chicha|hey\s*tea|heytea|chagee|mr\.?\s*coconut|boost\s*juice|r\s*&\s*b\s*tea|xing\s*fu\s*tang|yi\s*fang|milksha|chatime|tealive|happy\s*lemon|presotea|come\s*buy|comebuy|one\s*zo|onezo|chun\s*yang|春陽|春阳|daboba|tea\s*hut|teahut|craft\s*tea|i.?teashop|trtea|tenren|五十嵐|50\s*lan|coco\s*fresh|coco\b|peach\s*garden|hong\s*tang|black\s*ball|moo\s*tea|teapot\b|tea\s*plus|tea\s*culture|tea\s*work|tea\s*story|kft\b|kung\s*fu\s*tea)\b/i;
 
 function isSnackOrDrinkPlace(p: PlaceResult): boolean {
   const primary = p.primaryType ?? "";
   const name = p.displayName?.text ?? "";
 
   if (primary && SNACK_OR_DRINK_PRIMARY_TYPES.has(primary)) {
+    return true;
+  }
+
+  if (DRINK_CHAIN_NAME_PATTERN.test(name)) {
     return true;
   }
 
