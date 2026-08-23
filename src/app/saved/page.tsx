@@ -3,7 +3,7 @@
 import { googleMapsUrl } from "@/lib/restaurants";
 import { useSavedSpots } from "@/lib/hooks";
 import { removeSaved } from "@/lib/storage";
-import { VENUE_LABELS } from "@/lib/types";
+import { formatPriceLabel } from "@/lib/types";
 import Link from "next/link";
 
 export default function SavedPage() {
@@ -41,9 +41,7 @@ export default function SavedPage() {
                 <div>
                   <p className="font-display text-lg font-bold">{spot.name}</p>
                   <p className="mt-1 text-sm text-ink-muted">
-                    {spot.venueType
-                      ? `${VENUE_LABELS[spot.venueType]} · `
-                      : ""}
+                    {formatPriceLabel(spot.priceLevel, spot.priceRangeText)} ·{" "}
                     {spot.cuisine} · {spot.address}
                   </p>
                 </div>

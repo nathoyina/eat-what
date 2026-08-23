@@ -2,11 +2,12 @@ import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 
 /**
- * Nearby Search Pro free cap is 5,000/month.
- * We stay under that with a buffer. Override via PLACES_MONTHLY_CAP.
+ * Nearby/Text Search with priceLevel is billed as Enterprise SKU.
+ * Free monthly cap is ~1,000 (vs Pro ~5,000). Soft-cap below that.
+ * Override via PLACES_MONTHLY_CAP.
  */
-export const PLACES_FREE_TIER_CAP = 5_000;
-export const DEFAULT_MONTHLY_CAP = 4_500;
+export const PLACES_FREE_TIER_CAP = 1_000;
+export const DEFAULT_MONTHLY_CAP = 900;
 
 type QuotaFile = {
   month: string; // YYYY-MM

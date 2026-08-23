@@ -35,9 +35,10 @@ import { usePlaces, type SearchRequest } from "@/lib/usePlaces";
 import { useCallback, useMemo, useState } from "react";
 
 const defaultFilters: Filters = {
-  cuisine: null,
-  venueType: null,
+  cuisines: null,
+  price: null,
   reach: null,
+  walkRadius: null,
 };
 
 export default function HomePage() {
@@ -107,9 +108,10 @@ export default function HomePage() {
     setSearchRequest({
       location,
       filters: {
-        cuisine: filters.cuisine,
-        venueType: filters.venueType,
+        cuisines: filters.cuisines,
+        price: filters.price,
         reach: filters.reach,
+        walkRadius: filters.walkRadius,
       },
       token: Date.now(),
     });
@@ -152,7 +154,8 @@ export default function HomePage() {
       placeId: winner.placeId,
       name: winner.name,
       cuisine: winner.cuisine,
-      venueType: winner.venueType,
+      priceLevel: winner.priceLevel,
+      priceRangeText: winner.priceRangeText,
       address: winner.address,
       googleMapsQuery: winner.googleMapsQuery,
       googleMapsUri: winner.googleMapsUri,
@@ -184,7 +187,7 @@ export default function HomePage() {
           Spin your next makan
         </h1>
         <p className="mt-3 max-w-sm text-base text-ink-muted">
-          Real Google Maps places — pick area, cuisine & price, then spin.
+          Real Google Maps places — pick area, cuisine & $ band, then spin.
         </p>
         <button
           type="button"

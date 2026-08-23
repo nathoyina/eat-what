@@ -1,10 +1,12 @@
 "use client";
 
-import { FILTER_CUISINES, FILTER_VENUES } from "@/lib/cuisine-types";
+import { FILTER_CUISINES, FILTER_PRICES } from "@/lib/cuisine-types";
 import {
   filtersComplete,
+  WALK_RADIUS_OPTIONS,
   type Filters,
   type Reach,
+  type WalkRadius,
 } from "@/lib/types";
 
 type Props = {
@@ -18,10 +20,25 @@ type Props = {
 };
 
 const REACH_OPTIONS: { id: Reach; label: string; hint: string }[] = [
-  { id: "walk", label: "Walk", hint: "~1.5 km" },
+  { id: "walk", label: "Walk", hint: "you pick" },
   { id: "short", label: "Short ride", hint: "~5 km" },
   { id: "anywhere", label: "Anywhere", hint: "area / all" },
 ];
+
+function setReach(filters: Filters, reach: Reach): Filters {
+  if (reach === "walk") {
+    return {
+      ...filters,
+      reach,
+      walkRadius: filters.walkRadius ?? "500",
+    };
+  }
+  return { ...filters, reach, walkRadius: null };
+}
+
+function setWalkRadius(filters: Filters, walkRadius: WalkRadius): Filters {
+  return { ...filters, reach: "walk", walkRadius };
+}
 
 export function FilterBar({
   filters,
@@ -33,6 +50,9 @@ export function FilterBar({
   hasSearched,
 }: Props) {
   const ready = filtersComplete(filters);
+  const walkHint =
+    WALK_RADIUS_OPTIONS.find((o) => o.id === filters.walkRadius)?.label ??
+    "you pick";
 
   return (
     <section className="space-y-5">
@@ -40,7 +60,7 @@ export function FilterBar({
         <div>
           <h2 className="font-display text-xl font-semibold">Filters</h2>
           <p className="mt-1 text-sm text-ink-muted">
-            Pick reach, spot type & cuisine, then find spots.
+            Pick reach, price & cuisine, then find spots.
           </p>
         </div>
         {hasSearched && (
@@ -61,7 +81,7 @@ export function FilterBar({
               <button
                 key={opt.id}
                 type="button"
-                onClick={() => onChange({ ...filters, reach: opt.id })}
+                onClick={() => onChange(setReach(filters, opt.id))}
                 className={`rounded-xl px-2 py-2.5 text-center transition ${
                   on
                     ? "bg-coral text-white"
@@ -69,25 +89,48 @@ export function FilterBar({
                 }`}
               >
                 <span className="block text-sm font-bold">{opt.label}</span>
-                <span className="block text-[11px] opacity-80">{opt.hint}</span>
+                <span className="block text-[11px] opacity-80">
+                  {opt.id === "walk" ? walkHint : opt.hint}
+                </span>
               </button>
             );
           })}
         </div>
+        {filters.reach === "walk" && (
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            {WALK_RADIUS_OPTIONS.map((opt) => {
+              const on = filters.walkRadius === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => onChange(setWalkRadius(filters, opt.id))}
+                  className={`rounded-xl px-2 py-2 text-center text-sm font-bold transition ${
+                    on
+                      ? "bg-coral/90 text-white"
+                      : "border border-border bg-bg-soft text-ink-muted hover:text-ink"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div>
         <p className="mb-2 text-xs font-bold uppercase tracking-wider text-ink-muted">
-          Spot type <span className="text-coral">*</span>
+          Price <span className="text-coral">*</span>
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {FILTER_VENUES.map((opt) => {
-            const on = filters.venueType === opt.id;
+          {FILTER_PRICES.map((opt) => {
+            const on = filters.price === opt.id;
             return (
               <button
                 key={opt.id}
                 type="button"
-                onClick={() => onChange({ ...filters, venueType: opt.id })}
+                onClick={() => onChange({ ...filters, price: opt.id })}
                 className={`rounded-xl px-2 py-2.5 text-center transition ${
                   on
                     ? "bg-lime text-white"
@@ -100,18 +143,25 @@ export function FilterBar({
             );
           })}
         </div>
+        <p className="mt-2 text-xs text-ink-muted">
+          $ bands from Google Maps. SGD hints are rough meal-for-one estimates —
+          not a verified menu price.
+        </p>
       </div>
 
       <div>
         <p className="mb-2 text-xs font-bold uppercase tracking-wider text-ink-muted">
           Cuisine <span className="text-coral">*</span>
+          <span className="ml-1 font-medium normal-case tracking-normal">
+            (pick one or more)
+          </span>
         </p>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => onChange({ ...filters, cuisine: "any" })}
+            onClick={() => onChange({ ...filters, cuisines: ["any"] })}
             className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
-              filters.cuisine === "any"
+              filters.cuisines?.includes("any")
                 ? "bg-mint text-white"
                 : "border border-border bg-bg-soft text-ink-muted hover:text-ink"
             }`}
@@ -119,12 +169,24 @@ export function FilterBar({
             Any
           </button>
           {FILTER_CUISINES.map((cuisine) => {
-            const on = filters.cuisine === cuisine;
+            const selected = filters.cuisines ?? [];
+            const on =
+              !selected.includes("any") && selected.includes(cuisine);
             return (
               <button
                 key={cuisine}
                 type="button"
-                onClick={() => onChange({ ...filters, cuisine })}
+                onClick={() => {
+                  const current = filters.cuisines ?? [];
+                  const withoutAny = current.filter((c) => c !== "any");
+                  const next = withoutAny.includes(cuisine)
+                    ? withoutAny.filter((c) => c !== cuisine)
+                    : [...withoutAny, cuisine];
+                  onChange({
+                    ...filters,
+                    cuisines: next.length > 0 ? next : null,
+                  });
+                }}
                 className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
                   on
                     ? "bg-mint text-white"
@@ -136,12 +198,6 @@ export function FilterBar({
             );
           })}
         </div>
-        {filters.venueType === "hawker" && filters.cuisine !== "any" && (
-          <p className="mt-2 text-xs text-ink-muted">
-            Hawker search finds food centres nearby — cuisine filter is ignored
-            for hawkers.
-          </p>
-        )}
       </div>
 
       <button
@@ -155,7 +211,7 @@ export function FilterBar({
 
       {!ready && (
         <p className="text-center text-sm text-ink-muted">
-          Choose reach, spot type, and cuisine to continue.
+          Choose reach, price, and cuisine(s) to continue.
         </p>
       )}
     </section>

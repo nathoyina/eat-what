@@ -16,10 +16,8 @@ export const CUISINE_TO_GOOGLE_TYPES: Record<string, string[]> = {
   Malay: ["malaysian_restaurant", "indonesian_restaurant"],
   Salad: [
     "salad_shop",
-    "acai_shop",
     "vegetarian_restaurant",
     "vegan_restaurant",
-    "juice_shop",
     "sandwich_shop",
     "deli",
   ],
@@ -45,38 +43,22 @@ export const FILTER_CUISINES = [
   "Fast Food",
 ] as const;
 
-import type { VenueType } from "./types";
+import type { PriceFilter } from "./types";
 
-export type { VenueType };
-
-export const FILTER_VENUES: {
-  id: VenueType;
+export const FILTER_PRICES: {
+  id: PriceFilter;
   label: string;
   hint: string;
 }[] = [
-  { id: "any", label: "Any", hint: "all spots" },
-  { id: "hawker", label: "Hawker", hint: "food court" },
-  { id: "cafe", label: "Cafe", hint: "coffee & bites" },
-  { id: "restaurant", label: "Restaurant", hint: "sit-down" },
+  { id: "any", label: "Any", hint: "all prices" },
+  { id: "1", label: "$", hint: "~under S$15" },
+  { id: "2", label: "$$", hint: "~S$15–40" },
+  { id: "3", label: "$$$", hint: "~S$40+" },
 ];
-
-export const VENUE_TO_GOOGLE_TYPES: Record<
-  Exclude<VenueType, "any">,
-  string[]
-> = {
-  hawker: ["food_court"],
-  cafe: ["cafe", "coffee_shop", "bakery", "tea_house"],
-  restaurant: ["restaurant"],
-};
 
 /** Cuisines that need Text Search — Google types miss common spots. */
 export function cuisineUsesTextSearch(cuisines: string[]): boolean {
   return cuisines.length === 1 && cuisines[0] === "Salad";
-}
-
-/** Hawker centres often aren't tagged as food_court alone — text search helps. */
-export function venueUsesTextSearch(venue: VenueType): boolean {
-  return venue === "hawker";
 }
 
 export function googleTypesForCuisines(cuisines: string[]): string[] {
@@ -89,28 +71,11 @@ export function googleTypesForCuisines(cuisines: string[]): string[] {
   return [...types];
 }
 
-/**
- * Resolve Google Nearby types from venue + cuisine.
- * Cuisine specialty types win when venue is restaurant/any.
- * Cafe/hawker stick to their venue types (cuisine ignored for Nearby types).
- */
-export function googleTypesForFilters(
-  cuisine: string | undefined,
-  venue: VenueType,
-): string[] {
-  const cuisineSelected = cuisine && cuisine !== "any";
-  const cuisineTypes = cuisineSelected
-    ? googleTypesForCuisines([cuisine])
-    : [];
-
-  if (venue === "cafe") return [...VENUE_TO_GOOGLE_TYPES.cafe];
-  if (venue === "hawker") return [...VENUE_TO_GOOGLE_TYPES.hawker];
-  if (venue === "restaurant") {
-    return cuisineTypes.length > 0
-      ? cuisineTypes
-      : [...VENUE_TO_GOOGLE_TYPES.restaurant];
-  }
-  // any
+/** Resolve Google Nearby types from cuisine(s). */
+export function googleTypesForFilters(cuisines: string[] | undefined): string[] {
+  const selected = (cuisines ?? []).filter((c) => c && c !== "any");
+  const cuisineTypes =
+    selected.length > 0 ? googleTypesForCuisines(selected) : [];
   if (cuisineTypes.length > 0) return cuisineTypes;
   return [...DEFAULT_INCLUDED_TYPES];
 }
@@ -118,34 +83,6 @@ export function googleTypesForFilters(
 export const DEFAULT_INCLUDED_TYPES = [
   "restaurant",
   "cafe",
-  "bakery",
   "meal_takeaway",
   "food_court",
 ] as const;
-
-export function venueFromPlace(opts: {
-  primaryType?: string;
-  types?: string[];
-  name?: string;
-}): Exclude<VenueType, "any"> {
-  const primary = opts.primaryType ?? "";
-  const types = opts.types ?? [];
-  const name = opts.name ?? "";
-  const all = new Set([primary, ...types]);
-
-  if (
-    all.has("food_court") ||
-    /\b(hawker|food\s*centre|food\s*court|kopitiam)\b/i.test(name)
-  ) {
-    return "hawker";
-  }
-  if (
-    all.has("cafe") ||
-    all.has("coffee_shop") ||
-    all.has("bakery") ||
-    all.has("tea_house")
-  ) {
-    return "cafe";
-  }
-  return "restaurant";
-}

@@ -1,7 +1,7 @@
 import areasData from "@/data/areas.json";
 import { haversineKm } from "./geo";
 import {
-  REACH_KM,
+  distanceInReach,
   type Area,
   type CompleteFilters,
   type LocationMode,
@@ -28,40 +28,31 @@ export function filterRestaurants(
 ): Restaurant[] {
   let results = [...catalog];
 
-  // Cuisine + venue resolved server-side via Google types / text search
-
-  const radiusKm = REACH_KM[filters.reach];
+  // Cuisine + price resolved server-side via Google types / priceLevel
 
   if (location.type === "area") {
     // Places fetch is already scoped to the area; only apply radius filter
     // when reach is walk/short. "anywhere" keeps the fetched neighbourhood set.
-    if (radiusKm != null) {
+    if (filters.reach !== "anywhere") {
       const area = areas.find((a) => a.id === location.areaId);
       if (area) {
-        results = results.filter(
-          (r) => haversineKm(area.lat, area.lng, r.lat, r.lng) <= radiusKm,
+        results = results.filter((r) =>
+          distanceInReach(
+            haversineKm(area.lat, area.lng, r.lat, r.lng),
+            filters,
+          ),
         );
       }
     }
   } else if (location.type === "geo") {
-    if (radiusKm != null) {
-      results = results
-        .map((r) => ({
-          r,
-          d: haversineKm(location.lat, location.lng, r.lat, r.lng),
-        }))
-        .filter(({ d }) => d <= radiusKm)
-        .sort((a, b) => a.d - b.d)
-        .map(({ r }) => r);
-    } else {
-      results = results
-        .map((r) => ({
-          r,
-          d: haversineKm(location.lat, location.lng, r.lat, r.lng),
-        }))
-        .sort((a, b) => a.d - b.d)
-        .map(({ r }) => r);
-    }
+    results = results
+      .map((r) => ({
+        r,
+        d: haversineKm(location.lat, location.lng, r.lat, r.lng),
+      }))
+      .filter(({ d }) => distanceInReach(d, filters))
+      .sort((a, b) => a.d - b.d)
+      .map(({ r }) => r);
   }
 
   return results;

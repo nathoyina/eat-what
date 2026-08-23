@@ -69,7 +69,7 @@ export function LocationPicker({ location, onChange }: Props) {
         </span>
         <span className="mt-0.5 block text-xs text-ink-muted">
           {nearest
-            ? `Closest vibe: ${nearest.name}`
+            ? `Searching near you · around ${nearest.name}`
             : "We’ll pull makan within your reach"}
         </span>
       </button>

@@ -1,18 +1,18 @@
 import { areaName, areas } from "@/lib/restaurants";
 import {
   fetchNearbyFoodPlaces,
-  HAWKER_SEARCH_API_COST,
   SALAD_SEARCH_API_COST,
 } from "@/lib/google-places";
-import {
-  cuisineUsesTextSearch,
-  venueUsesTextSearch,
-} from "@/lib/cuisine-types";
+import { cuisineUsesTextSearch } from "@/lib/cuisine-types";
 import {
   getQuotaStatus,
   tryConsumeQuota,
 } from "@/lib/places-quota";
-import { REACH_KM, type Restaurant, type VenueType } from "@/lib/types";
+import {
+  REACH_KM,
+  type PriceFilter,
+  type Restaurant,
+} from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -30,13 +30,12 @@ function quotaPayload(quota: Awaited<ReturnType<typeof getQuotaStatus>>) {
   };
 }
 
-function parseVenue(raw: string | null): VenueType {
-  if (raw === "hawker" || raw === "cafe" || raw === "restaurant") return raw;
+function parsePrice(raw: string | null): PriceFilter {
+  if (raw === "1" || raw === "2" || raw === "3" || raw === "any") return raw;
   return "any";
 }
 
-function apiCost(cuisines: string[], venue: VenueType): number {
-  if (venueUsesTextSearch(venue)) return HAWKER_SEARCH_API_COST;
+function apiCost(cuisines: string[]): number {
   if (cuisines.some((c) => cuisineUsesTextSearch([c]))) {
     return SALAD_SEARCH_API_COST;
   }
@@ -49,7 +48,7 @@ export async function GET(req: Request) {
   const latParam = url.searchParams.get("lat");
   const lngParam = url.searchParams.get("lng");
   const reach = url.searchParams.get("reach") ?? "short";
-  const venue = parseVenue(url.searchParams.get("venue"));
+  const price = parsePrice(url.searchParams.get("price"));
   const cuisinesParam = url.searchParams.get("cuisines") ?? "";
   const cuisines = cuisinesParam
     ? cuisinesParam.split(",").map((c) => c.trim()).filter(Boolean)
@@ -70,9 +69,13 @@ export async function GET(req: Request) {
     resolvedAreaName = area.name;
     center = { lat: area.lat, lng: area.lng };
   } else if (latParam && lngParam) {
-    center = { lat: Number(latParam), lng: Number(lngParam) };
-    areaKey = `geo-${center.lat.toFixed(3)}-${center.lng.toFixed(3)}`;
-    resolvedAreaId = areaId ?? areaKey;
+    // Bucket to ~100m so nearby GPS users share the 24h cache.
+    const lat = Number(Number(latParam).toFixed(3));
+    const lng = Number(Number(lngParam).toFixed(3));
+    center = { lat, lng };
+    areaKey = `geo-${lat.toFixed(3)}-${lng.toFixed(3)}`;
+    resolvedAreaId = areaKey;
+    resolvedAreaName = "near me";
   } else {
     return Response.json(
       { error: "Provide areaId or lat & lng" },
@@ -86,7 +89,7 @@ export async function GET(req: Request) {
     Math.round((radiusKm ?? 8) * 1000),
   );
 
-  const cacheKey = `${areaKey}:${radiusMeters}:${venue}:${cuisines.sort().join("|") || "all"}`;
+  const cacheKey = `${areaKey}:${radiusMeters}:${price}:${cuisines.sort().join("|") || "all"}`;
   const cached = cache.get(cacheKey);
   const quota = await getQuotaStatus();
 
@@ -115,7 +118,7 @@ export async function GET(req: Request) {
     });
   }
 
-  const consumed = await tryConsumeQuota(apiCost(cuisines, venue));
+  const consumed = await tryConsumeQuota(apiCost(cuisines));
   if (!consumed.allowed) {
     return Response.json(
       {
@@ -138,24 +141,26 @@ export async function GET(req: Request) {
       areaId: resolvedAreaId,
       areaName: resolvedAreaName ?? areaName(resolvedAreaId),
       cuisines,
-      venueType: venue,
+      priceFilter: price,
     });
 
     if (!places.length) {
-      const venueLabel =
-        venue === "any"
+      const priceHint =
+        price === "any"
           ? ""
-          : venue === "hawker"
-            ? "hawker / food court "
-            : `${venue} `;
+          : price === "1"
+            ? "$ "
+            : price === "2"
+              ? "$$ "
+              : "$$$ ";
       return Response.json({
         places: [],
         source: "places",
         area: areaKey,
         quota: quotaPayload(consumed),
         message: cuisines.length
-          ? `No ${venueLabel}${cuisines.join(" / ")} spots found nearby. Try wider reach or another filter.`
-          : `No ${venueLabel || "food "}places found nearby. Try a wider reach.`,
+          ? `No ${priceHint}${cuisines.join(" / ")} spots found nearby. Try another price or wider reach.`
+          : `No ${priceHint || ""}food places found nearby. Try a wider reach or another price.`,
       });
     }
 

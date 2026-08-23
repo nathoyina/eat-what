@@ -122,7 +122,9 @@ export function SpinWheel({
                 </p>
                 <p className="mt-0.5 truncate text-xs text-ink-muted">
                   {r.cuisine}
-                  {r.venueType ? ` · ${labelVenue(r.venueType)}` : ""}
+                  {r.priceLevel != null
+                    ? ` · ${"$".repeat(r.priceLevel)}`
+                    : ""}
                 </p>
               </div>
             ))}
@@ -154,10 +156,4 @@ export function SpinWheel({
 /** Offset so item at `index` sits in the middle row of the viewport. */
 function centerOffset(index: number): number {
   return -(index * ITEM_H) + ITEM_H;
-}
-
-function labelVenue(venue: "hawker" | "cafe" | "restaurant"): string {
-  if (venue === "hawker") return "Hawker";
-  if (venue === "cafe") return "Cafe";
-  return "Restaurant";
 }
