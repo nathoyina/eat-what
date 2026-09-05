@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Eat What — random restaurant picker for Singapore";
+export const alt =
+  "Eat What — random picker for meals, snacks and drinks in Singapore";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -31,7 +32,7 @@ export default function OpenGraphImage() {
             textTransform: "uppercase",
           }}
         >
-          Singapore · makan picker
+          Singapore · meals · snacks · drinks
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div
@@ -54,7 +55,7 @@ export default function OpenGraphImage() {
               maxWidth: 900,
             }}
           >
-            Spin a wheel of real nearby restaurants, cafes and hawkers.
+            Spin a wheel of real nearby meals, snacks and drinks.
           </div>
         </div>
         <div

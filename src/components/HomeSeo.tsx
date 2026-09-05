@@ -10,7 +10,7 @@ export function HomeSeo() {
             id="how-it-works-heading"
             className="font-display text-2xl font-bold text-ink"
           >
-            How the Singapore restaurant spinner works
+            How the Singapore meal, snack and drinks spinner works
           </h2>
           <ol className="mt-6 space-y-5">
             <li>
@@ -19,8 +19,7 @@ export function HomeSeo() {
               </h3>
               <p className="mt-1 text-sm leading-relaxed text-ink-muted">
                 Choose a neighbourhood or share your location. We search live
-                Google Maps places around that point — restaurants, cafes or
-                hawker centres.
+                Google Maps places around that point — meals, snacks or drinks.
               </p>
             </li>
             <li>

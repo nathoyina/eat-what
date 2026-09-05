@@ -13,6 +13,6 @@ export function getSiteUrl(): string {
 }
 
 export const SITE_NAME = "Eat What";
-export const SITE_TAGLINE = "Random restaurant picker for Singapore";
+export const SITE_TAGLINE = "Random picker for meals, snacks and drinks in Singapore";
 export const SITE_DESCRIPTION =
-  "Can't decide what to eat in Singapore? Pick a neighbourhood, cuisine and budget, then spin a wheel of real Google Maps restaurants, cafes and hawker centres. No signup.";
+  "Can't decide what to eat or drink in Singapore? Pick a neighbourhood, then meal, snack or drinks, cuisine and budget. Spin a wheel of real Google Maps restaurants, cafes, hawker centres and bars. No signup.";

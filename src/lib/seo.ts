@@ -2,14 +2,19 @@ import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE } from "./site";
 
 export const homeFaqs = [
   {
-    question: "How does Eat What pick a restaurant?",
+    question: "How does Eat What pick a spot?",
     answer:
-      "You choose a Singapore neighbourhood or use your location, then set meal vs snack vs drinks, cuisine, price and how far you will go. Eat What loads live places from Google Maps, puts a shortlist on a spin reel, and lands on one spot so dinner is decided.",
+      "You choose a Singapore neighbourhood or use your location, then set meal, snack or drinks, cuisine, price and how far you will go. Eat What loads live places from Google Maps, puts a shortlist on a spin reel, and lands on one spot.",
+  },
+  {
+    question: "Can I spin for snacks or drinks, not just dinner?",
+    answer:
+      "Yes. Kind is a required filter: Meal for restaurants and hawker food, Snack for dessert and bites, or Drinks for cafes, tea, coffee and bars. Then spin a nearby winner from Google Maps.",
   },
   {
     question: "Does it work for hawker centres and cafes?",
     answer:
-      "Yes. Filter by restaurant, cafe or hawker, then spin. Results come from Google Places, so you get real nearby spots rather than a static list.",
+      "Yes. Meal searches cover restaurants and hawker centres. Drinks covers cafes and bars. Snack covers dessert and bite spots. Results come from Google Places, so you get real nearby venues rather than a static list.",
   },
   {
     question: "Which Singapore areas can I search?",

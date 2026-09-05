@@ -156,13 +156,13 @@ export function HomeApp() {
               Eat What<span className="text-coral">?</span>
             </h1>
             <p className="mt-6 max-w-lg font-display text-2xl font-semibold leading-snug text-ink sm:text-3xl">
-              Singapore&apos;s restaurant{" "}
+              Singapore&apos;s meal, snack and drinks{" "}
               <span className="text-lime">randomiser.</span>
             </p>
             <p className="mt-4 max-w-md text-base leading-relaxed text-ink-muted sm:text-lg">
-              Can&apos;t decide where to eat? Pick a neighbourhood, cuisine and
-              budget. We load live restaurants, cafes and hawker centres from
-              Google Maps, then spin one winner.
+              Can&apos;t decide what to eat or drink? Pick a neighbourhood, then
+              meal, snack or drinks, cuisine and budget. We load live Google
+              Maps spots and spin one winner.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-4">

@@ -28,6 +28,8 @@ export const metadata: Metadata = {
   keywords: [
     "Singapore restaurant picker",
     "what to eat Singapore",
+    "snack spinner Singapore",
+    "where to drink Singapore",
     "random restaurant generator",
     "hawker centre spinner",
     "where to eat tonight",
