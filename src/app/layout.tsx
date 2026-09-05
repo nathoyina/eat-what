@@ -66,7 +66,7 @@ export const metadata: Metadata = {
   },
   category: "food",
   verification: {
-    google: GOOGLE_SITE_VERIFICATION,
+    google: [...GOOGLE_SITE_VERIFICATION],
   },
 };
 
