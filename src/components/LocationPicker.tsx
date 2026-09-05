@@ -2,8 +2,9 @@
 
 import { areas } from "@/lib/restaurants";
 import { nearestArea } from "@/lib/geo";
+import { loadRecentAreas, rememberArea } from "@/lib/storage";
 import type { LocationMode } from "@/lib/types";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type Props = {
   location: LocationMode;
@@ -13,6 +14,23 @@ type Props = {
 export function LocationPicker({ location, onChange }: Props) {
   const [geoError, setGeoError] = useState<string | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
+  const [recentAreaIds, setRecentAreaIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    queueMicrotask(() => setRecentAreaIds(loadRecentAreas()));
+  }, []);
+
+  const recentAreas = recentAreaIds.flatMap((id) => {
+    const area = areas.find((candidate) => candidate.id === id);
+    return area ? [area] : [];
+  });
+  const recentIds = new Set(recentAreas.map((area) => area.id));
+  const remainingAreas = areas.filter((area) => !recentIds.has(area.id));
+
+  const pickArea = (areaId: string) => {
+    setRecentAreaIds(rememberArea(areaId));
+    onChange({ type: "area", areaId });
+  };
 
   const useMyLocation = () => {
     setGeoError(null);
@@ -82,26 +100,48 @@ export function LocationPicker({ location, onChange }: Props) {
         <p className="mb-2 text-xs font-bold uppercase tracking-wider text-ink-muted">
           Or pick an area
         </p>
-        <div className="flex flex-wrap gap-2">
-          {areas.map((area) => {
-            const selected =
-              location.type === "area" && location.areaId === area.id;
-            return (
-              <button
-                key={area.id}
-                type="button"
-                onClick={() => onChange({ type: "area", areaId: area.id })}
-                className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
-                  selected
-                    ? "bg-lime text-white"
-                    : "border border-border bg-bg-soft text-ink-muted hover:border-lime/30 hover:text-ink"
-                }`}
-              >
-                {area.name}
-              </button>
-            );
-          })}
-        </div>
+        {recentAreas.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {recentAreas.map((area) => {
+              const selected =
+                location.type === "area" && location.areaId === area.id;
+              return (
+                <button
+                  key={area.id}
+                  type="button"
+                  onClick={() => pickArea(area.id)}
+                  className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
+                    selected
+                      ? "bg-lime text-white"
+                      : "border border-border bg-bg-soft text-ink-muted hover:border-lime/30 hover:text-ink"
+                  }`}
+                >
+                  {area.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <label htmlFor="area-select" className="sr-only">
+          Choose another Singapore area
+        </label>
+        <select
+          id="area-select"
+          value=""
+          onChange={(event) => {
+            if (event.target.value) pickArea(event.target.value);
+          }}
+          className="w-full rounded-xl border border-border bg-bg-elevated px-3 py-2.5 text-sm text-ink outline-none transition focus:border-lime"
+        >
+          <option value="">
+            Choose from {remainingAreas.length} other areas…
+          </option>
+          {remainingAreas.map((area) => (
+            <option key={area.id} value={area.id}>
+              {area.name}
+            </option>
+          ))}
+        </select>
       </div>
     </section>
   );

@@ -1,11 +1,9 @@
-import { emptyProgress } from "./badges";
-import type { BadgeProgress, SavedSpot } from "./types";
+import type { SavedSpot } from "./types";
 
 const SAVED_KEY = "eat-what:saved";
-const BADGES_KEY = "eat-what:badges";
-const SESSION_SPINS_KEY = "eat-what:session-spins";
+const RECENT_AREAS_KEY = "eat-what:recent-areas";
+const RECENT_AREAS_LIMIT = 5;
 export const SAVED_EVENT = "eat-what:saved-change";
-export const BADGES_EVENT = "eat-what:badges-change";
 
 function canUseStorage(): boolean {
   return typeof window !== "undefined";
@@ -47,34 +45,29 @@ export function isSaved(id: string): boolean {
   return loadSaved().some((s) => s.id === id);
 }
 
-export function loadBadgeProgress(): BadgeProgress {
-  if (!canUseStorage()) return emptyProgress();
+export function loadRecentAreas(): string[] {
+  if (!canUseStorage()) return [];
   try {
-    const raw = localStorage.getItem(BADGES_KEY);
-    const base = raw
-      ? ({
-          ...emptyProgress(),
-          ...(JSON.parse(raw) as BadgeProgress),
-        } as BadgeProgress)
-      : emptyProgress();
-    const sessionSpins = Number(
-      sessionStorage.getItem(SESSION_SPINS_KEY) || "0",
-    );
-    return { ...base, sessionSpins };
+    const raw = localStorage.getItem(RECENT_AREAS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed)
+      ? parsed.filter((id): id is string => typeof id === "string").slice(0, RECENT_AREAS_LIMIT)
+      : [];
   } catch {
-    return emptyProgress();
+    return [];
   }
 }
 
-export function saveBadgeProgress(progress: BadgeProgress): void {
-  if (!canUseStorage()) return;
-  const { sessionSpins, ...persisted } = progress;
-  sessionStorage.setItem(SESSION_SPINS_KEY, String(sessionSpins));
-  localStorage.setItem(
-    BADGES_KEY,
-    JSON.stringify({ ...persisted, sessionSpins: 0 }),
-  );
-  emit(BADGES_EVENT);
+export function rememberArea(areaId: string): string[] {
+  const next = [
+    areaId,
+    ...loadRecentAreas().filter((id) => id !== areaId),
+  ].slice(0, RECENT_AREAS_LIMIT);
+  if (canUseStorage()) {
+    localStorage.setItem(RECENT_AREAS_KEY, JSON.stringify(next));
+  }
+  return next;
 }
 
 export function subscribeSaved(onChange: () => void) {
@@ -82,15 +75,6 @@ export function subscribeSaved(onChange: () => void) {
   window.addEventListener("storage", onChange);
   return () => {
     window.removeEventListener(SAVED_EVENT, onChange);
-    window.removeEventListener("storage", onChange);
-  };
-}
-
-export function subscribeBadges(onChange: () => void) {
-  window.addEventListener(BADGES_EVENT, onChange);
-  window.addEventListener("storage", onChange);
-  return () => {
-    window.removeEventListener(BADGES_EVENT, onChange);
     window.removeEventListener("storage", onChange);
   };
 }

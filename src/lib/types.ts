@@ -79,23 +79,6 @@ export type SavedSpot = {
   savedAt: string;
 };
 
-export type BadgeId =
-  | "first-spin"
-  | "indecisive"
-  | "globe-trotter"
-  | "budget-hero"
-  | "area-hopper"
-  | "list-keeper";
-
-export type BadgeProgress = {
-  unlocked: BadgeId[];
-  totalSpins: number;
-  sessionSpins: number;
-  cuisinesLanded: string[];
-  areasSpun: string[];
-  savedCount: number;
-};
-
 export const REACH_KM: Record<Reach, number | null> = {
   walk: 1.5,
   short: 5,
