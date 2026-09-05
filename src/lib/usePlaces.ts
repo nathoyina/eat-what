@@ -36,11 +36,12 @@ function cacheKey(request: SearchRequest): string | null {
   const { location, filters } = request;
   const cuisineKey = cuisineCacheKey(filters.cuisines);
   const priceKey = filters.price ?? "none";
+  const kindKey = filters.kind;
   if (location.type === "area") {
-    return `area:${location.areaId}:${filters.reach}:${cuisineKey}:${priceKey}`;
+    return `area:${location.areaId}:${filters.reach}:${kindKey}:${cuisineKey}:${priceKey}`;
   }
   if (location.type === "geo") {
-    return `geo:${geoBucket(location.lat, location.lng)}:${filters.reach}:${cuisineKey}:${priceKey}`;
+    return `geo:${geoBucket(location.lat, location.lng)}:${filters.reach}:${kindKey}:${cuisineKey}:${priceKey}`;
   }
   return null;
 }
@@ -50,7 +51,9 @@ function buildUrl(request: SearchRequest): string | null {
   const params = new URLSearchParams();
   params.set("reach", filters.reach);
   params.set("price", filters.price);
+  params.set("kind", filters.kind);
   if (
+    filters.kind === "meal" &&
     filters.cuisines.length > 0 &&
     !filters.cuisines.includes("any")
   ) {

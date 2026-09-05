@@ -28,13 +28,18 @@ export type Restaurant = {
   priceRangeText?: string;
 };
 
+/** What to look for — meals exclude snack/drink shops. */
+export type FoodKind = "meal" | "snack" | "drinks";
+
 export type Reach = "walk" | "short" | "anywhere";
 
 /** Walk distance cap. Labels are bands; filter is still “within max”. */
 export type WalkRadius = "500" | "500-1000" | "1000-1500";
 
 export type Filters = {
-  /** null = not chosen yet; ["any"] or one+ cuisine labels */
+  /** null = not chosen yet */
+  kind: FoodKind | null;
+  /** null = not chosen yet; ["any"] or one+ cuisine labels. Required for meals. */
   cuisines: string[] | null;
   /** null = not chosen yet */
   price: PriceFilter | null;
@@ -44,17 +49,47 @@ export type Filters = {
   walkRadius: WalkRadius | null;
 };
 
-export function filtersComplete(filters: Filters): filters is CompleteFilters {
-  return (
-    filters.cuisines !== null &&
-    filters.cuisines.length > 0 &&
-    filters.price !== null &&
-    filters.reach !== null &&
-    (filters.reach !== "walk" || filters.walkRadius !== null)
-  );
+export const FILTER_FOOD_KINDS: {
+  id: FoodKind;
+  label: string;
+  hint: string;
+}[] = [
+  { id: "meal", label: "Meal", hint: "lunch & dinner" },
+  { id: "snack", label: "Snack", hint: "dessert & bites" },
+  { id: "drinks", label: "Drinks", hint: "tea, coffee & bars" },
+];
+
+export function filtersComplete(filters: Filters): boolean {
+  if (
+    filters.kind == null ||
+    filters.price == null ||
+    filters.reach == null ||
+    (filters.reach === "walk" && filters.walkRadius == null)
+  ) {
+    return false;
+  }
+  if (filters.kind === "meal") {
+    return filters.cuisines !== null && filters.cuisines.length > 0;
+  }
+  return true;
+}
+
+export function toCompleteFilters(filters: Filters): CompleteFilters | null {
+  if (!filtersComplete(filters)) return null;
+  const { kind, price, reach, walkRadius } = filters;
+  if (kind == null || price == null || reach == null) return null;
+  return {
+    kind,
+    cuisines:
+      kind === "meal" ? (filters.cuisines ?? ["any"]) : ["any"],
+    price,
+    reach,
+    walkRadius,
+  };
 }
 
 export type CompleteFilters = {
+  kind: FoodKind;
   cuisines: string[];
   price: PriceFilter;
   reach: Reach;

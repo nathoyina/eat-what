@@ -5,6 +5,7 @@ import {
 } from "./cuisine-types";
 import {
   matchesPriceFilter,
+  type FoodKind,
   type PriceFilter,
   type PriceLevel,
   type Restaurant,
@@ -62,12 +63,7 @@ const EXCLUDED_PRIMARY_TYPES = new Set([
   "lodging",
 ]);
 
-/**
- * Drink / snack / dessert primaries — not a meal for “eat what”.
- * Juice / açaí kept only when cuisine filter is Salad.
- */
-const SNACK_OR_DRINK_PRIMARY_TYPES = new Set([
-  "juice_shop",
+const SNACK_PRIMARY_TYPES = new Set([
   "acai_shop",
   "ice_cream_shop",
   "dessert_shop",
@@ -82,11 +78,16 @@ const SNACK_OR_DRINK_PRIMARY_TYPES = new Set([
   "bagel_shop",
   "bakery",
   "snack_bar",
+]);
+
+/** Drink shops / bars — not cafes (cafes stay meals unless the name is a drink shop). */
+const DRINK_PRIMARY_TYPES = new Set([
+  "juice_shop",
   "tea_house",
   "tea_store",
   "coffee_roastery",
   "coffee_stand",
-  "liquor_store",
+  "coffee_shop",
   "wine_bar",
   "cocktail_bar",
   "bar",
@@ -97,8 +98,8 @@ const SNACK_OR_DRINK_PRIMARY_TYPES = new Set([
   "lounge_bar",
 ]);
 
-/** Always strip these from Nearby requests so malls/snacks don't come back as “food”. */
-const EXCLUDED_NEARBY_TYPES = [
+/** Malls / retail — never treat as makan. */
+const EXCLUDED_NON_EATERY_NEARBY = [
   "shopping_mall",
   "department_store",
   "supermarket",
@@ -107,8 +108,13 @@ const EXCLUDED_NEARBY_TYPES = [
   "market",
   "hotel",
   "lodging",
+  "liquor_store",
+] as const;
+
+const SNACK_NEARBY_TYPES = [
   "ice_cream_shop",
   "dessert_shop",
+  "dessert_restaurant",
   "candy_store",
   "chocolate_shop",
   "confectionery",
@@ -117,50 +123,43 @@ const EXCLUDED_NEARBY_TYPES = [
   "cake_shop",
   "bakery",
   "snack_bar",
+  "bagel_shop",
+  "acai_shop",
+] as const;
+
+const DRINK_SHOP_NEARBY_TYPES = [
+  "juice_shop",
   "tea_house",
   "tea_store",
-  "liquor_store",
+  "coffee_roastery",
+  "coffee_stand",
+  "coffee_shop",
   "wine_bar",
+  "cocktail_bar",
   "bar",
   "pub",
   "brewery",
-] as const;
-
-/** Extra snack/drink exclusions for non-Salad searches. */
-const EXCLUDED_SNACK_DRINK_NEARBY = [
-  "juice_shop",
-  "acai_shop",
-  "coffee_roastery",
-  "coffee_stand",
-  "bagel_shop",
-  "dessert_restaurant",
-  "cocktail_bar",
   "sports_bar",
   "hookah_bar",
 ] as const;
 
-const FOOD_PRIMARY_TYPES = new Set([
-  "restaurant",
-  "cafe",
-  "coffee_shop",
-  "food_court",
-  "meal_takeaway",
-  "meal_delivery",
-  "fast_food_restaurant",
-  "hamburger_restaurant",
-  "pizza_restaurant",
-  "sandwich_shop",
-  "salad_shop",
-  "deli",
-]);
+/** Include cafe so SG bubble-tea shops tagged as cafe still come back. */
+const DRINK_NEARBY_TYPES = [...DRINK_SHOP_NEARBY_TYPES, "cafe"] as const;
 
 /** Mall / plaza names that aren't food venues even if Google is fuzzy. */
 const MALL_NAME_PATTERN =
   /\b(mall|shopping\s*(centre|center|plaza)|town\s*square)\b/i;
 
-/** Drink / snack shop names Google often mistags as restaurant/cafe. */
-const SNACK_OR_DRINK_NAME_PATTERN =
-  /\b(bubble\s*tea|boba|bbt|milk\s*tea|fruit\s*tea|ice\s*cream|gelato|yogurt|yoghurt|dessert|smoothie|juice\s*bar|tea\s*(shop|house|bar)|coffee\s*(bean|roaster)|wine\s*bar|cocktail\s*bar|liquor|snack\s*bar|donut|doughnut|pastry|cake\s*shop|candy|chocolat)\b/i;
+/** SG malls Google often returns without the word “mall” (e.g. primaryType food_court). */
+const NAMED_MALL_PATTERN = /\b(hillion)\b/i;
+
+/** Drink shop names Google often mistags as restaurant/cafe. */
+const DRINK_NAME_PATTERN =
+  /\b(bubble\s*tea|boba|bbt|milk\s*tea|fruit\s*tea|smoothie|juice\s*bar|tea\s*(shop|house|bar)|coffee\s*(bean|roaster)|wine\s*bar|cocktail\s*bar|liquor)\b/i;
+
+/** Snack / dessert names Google often mistags as restaurant/cafe. */
+const SNACK_NAME_PATTERN =
+  /\b(ice\s*cream|gelato|yogurt|yoghurt|dessert|snack\s*bar|donut|doughnut|pastry|cake\s*shop|candy|chocolat)\b/i;
 
 /**
  * SG drink / bubble-tea chains whose names don't say “tea” / “boba”.
@@ -169,58 +168,56 @@ const SNACK_OR_DRINK_NAME_PATTERN =
 const DRINK_CHAIN_NAME_PATTERN =
   /\b(playmade|play\s*made|丸作|liho|li\s*ho|gong\s*cha|gongcha|koi\s*th[eé]|koi\b|each\s*a\s*cup|sharetea|share\s*tea|the\s*alley|tiger\s*sugar|chicha|hey\s*tea|heytea|chagee|mr\.?\s*coconut|boost\s*juice|r\s*&\s*b\s*tea|xing\s*fu\s*tang|yi\s*fang|milksha|chatime|tealive|happy\s*lemon|presotea|come\s*buy|comebuy|one\s*zo|onezo|chun\s*yang|春陽|春阳|daboba|tea\s*hut|teahut|craft\s*tea|i.?teashop|trtea|tenren|五十嵐|50\s*lan|coco\s*fresh|coco\b|peach\s*garden|hong\s*tang|black\s*ball|moo\s*tea|teapot\b|tea\s*plus|tea\s*culture|tea\s*work|tea\s*story|kft\b|kung\s*fu\s*tea)\b/i;
 
-function isSnackOrDrinkPlace(p: PlaceResult): boolean {
+function nameLooksLikeSitDownRestaurant(primary: string): boolean {
+  return Boolean(
+    primary &&
+      primary.endsWith("_restaurant") &&
+      primary !== "dessert_restaurant",
+  );
+}
+
+function classifyFoodKind(p: PlaceResult): FoodKind {
   const primary = p.primaryType ?? "";
   const name = p.displayName?.text ?? "";
 
-  if (primary && SNACK_OR_DRINK_PRIMARY_TYPES.has(primary)) {
-    return true;
+  if (DRINK_CHAIN_NAME_PATTERN.test(name)) return "drinks";
+  if (primary && DRINK_PRIMARY_TYPES.has(primary)) return "drinks";
+  if (primary && SNACK_PRIMARY_TYPES.has(primary)) return "snack";
+
+  if (DRINK_NAME_PATTERN.test(name) && !nameLooksLikeSitDownRestaurant(primary)) {
+    return "drinks";
+  }
+  if (SNACK_NAME_PATTERN.test(name) && !nameLooksLikeSitDownRestaurant(primary)) {
+    return "snack";
   }
 
-  if (DRINK_CHAIN_NAME_PATTERN.test(name)) {
-    return true;
-  }
+  return "meal";
+}
 
-  if (SNACK_OR_DRINK_NAME_PATTERN.test(name)) {
-    // Sit-down dessert restaurants can stay; pure shops go.
-    if (
-      primary &&
-      primary.endsWith("_restaurant") &&
-      primary !== "dessert_restaurant"
-    ) {
-      return false;
-    }
-    return true;
-  }
+function isNamedFoodCourt(name: string): boolean {
+  return /\bfood\s*(court|centre|center)\b/i.test(name);
+}
 
-  return false;
+function isMallPlace(p: PlaceResult): boolean {
+  const types = p.types ?? [];
+  const name = p.displayName?.text ?? "";
+  if (isNamedFoodCourt(name)) return false;
+  return (
+    types.includes("shopping_mall") ||
+    MALL_NAME_PATTERN.test(name) ||
+    NAMED_MALL_PATTERN.test(name)
+  );
 }
 
 function isNonEateryPlace(p: PlaceResult): boolean {
   const primary = p.primaryType ?? "";
-  const types = p.types ?? [];
-  const name = p.displayName?.text ?? "";
 
   if (primary && EXCLUDED_PRIMARY_TYPES.has(primary)) return true;
-  if (isSnackOrDrinkPlace(p)) return true;
-
-  // Mall tagged with food_court as a secondary type — still a mall.
-  if (
-    types.includes("shopping_mall") &&
-    (!primary || primary === "shopping_mall" || !FOOD_PRIMARY_TYPES.has(primary))
-  ) {
-    return true;
-  }
-
-  // e.g. "Hillion Mall" returned under a loose/missing type
-  if (MALL_NAME_PATTERN.test(name)) {
-    if (/\bfood\s*(court|centre|center)\b/i.test(name)) return false;
-    if (primary && FOOD_PRIMARY_TYPES.has(primary)) return false;
-    return true;
-  }
+  if (isMallPlace(p)) return true;
 
   return false;
 }
+
 const SALAD_PRIMARY_TYPES = new Set([
   "salad_shop",
   "vegetarian_restaurant",
@@ -343,8 +340,14 @@ const TYPE_CUISINE: Record<string, string> = {
   middle_eastern_restaurant: "Middle Eastern",
   cafe: "Cafe",
   coffee_shop: "Cafe",
-  bakery: "Cafe",
-  tea_house: "Cafe",
+  coffee_stand: "Cafe",
+  coffee_roastery: "Cafe",
+  bakery: "Bakery",
+  pastry_shop: "Bakery",
+  bagel_shop: "Bakery",
+  tea_house: "Drinks",
+  tea_store: "Drinks",
+  juice_shop: "Drinks",
   food_court: "Hawker",
   salad_shop: "Salad",
   vegetarian_restaurant: "Salad",
@@ -355,6 +358,22 @@ const TYPE_CUISINE: Record<string, string> = {
   meal_delivery: "Delivery",
   fast_food_restaurant: "Fast Food",
   restaurant: "Restaurant",
+  ice_cream_shop: "Dessert",
+  dessert_shop: "Dessert",
+  dessert_restaurant: "Dessert",
+  donut_shop: "Dessert",
+  cake_shop: "Dessert",
+  snack_bar: "Snack",
+  candy_store: "Snack",
+  chocolate_shop: "Snack",
+  confectionery: "Snack",
+  acai_shop: "Snack",
+  bar: "Bar",
+  pub: "Bar",
+  wine_bar: "Bar",
+  cocktail_bar: "Bar",
+  brewery: "Bar",
+  sports_bar: "Bar",
 };
 
 function cuisineFromPlace(
@@ -372,7 +391,7 @@ function cuisineFromPlace(
     if (selectedCuisines.includes(label)) return label;
     return label;
   }
-  return selectedCuisines[0] ?? "Restaurant";
+  return selectedCuisines[0] ?? "Food";
 }
 
 function priceLevelFromPlace(p: PlaceResult): PriceLevel | null {
@@ -423,14 +442,19 @@ function placesToRestaurants(
     forceCuisine?: string;
     textSearch?: boolean;
     priceFilter?: PriceFilter;
+    foodKind?: FoodKind;
   },
 ): Restaurant[] {
   const byId = new Map<string, Restaurant>();
   const priceFilter = opts.priceFilter ?? "any";
+  const foodKind = opts.foodKind ?? "meal";
 
   for (const p of places) {
     if (!p.id || !p.displayName?.text) continue;
     if (isNonEateryPlace(p)) {
+      continue;
+    }
+    if (classifyFoodKind(p) !== foodKind) {
       continue;
     }
     if (opts.textSearch && opts.forceCuisine === "Salad" && !isSaladPlace(p)) {
@@ -479,6 +503,58 @@ function placesToRestaurants(
   return [...byId.values()];
 }
 
+function mealExcludedNearbyTypes(): string[] {
+  return [
+    ...EXCLUDED_NON_EATERY_NEARBY,
+    ...SNACK_NEARBY_TYPES,
+    ...DRINK_SHOP_NEARBY_TYPES,
+  ];
+}
+
+async function fetchByFoodKind(opts: {
+  apiKey: string;
+  lat: number;
+  lng: number;
+  radiusMeters: number;
+  areaId: string;
+  priceFilter: PriceFilter;
+  foodKind: "snack" | "drinks";
+}): Promise<Restaurant[]> {
+  const includedPrimaryTypes = [
+    ...(opts.foodKind === "snack" ? SNACK_NEARBY_TYPES : DRINK_NEARBY_TYPES),
+  ];
+  const excludedTypes = [
+    ...EXCLUDED_NON_EATERY_NEARBY,
+    ...(opts.foodKind === "snack" ? DRINK_SHOP_NEARBY_TYPES : SNACK_NEARBY_TYPES),
+  ];
+
+  const data = await callPlacesApi(opts.apiKey, "searchNearby", {
+    includedPrimaryTypes,
+    excludedTypes,
+    excludedPrimaryTypes: excludedTypes,
+    maxResultCount: 20,
+    rankPreference: "DISTANCE",
+    languageCode: "en",
+    regionCode: "SG",
+    locationRestriction: {
+      circle: {
+        center: {
+          latitude: opts.lat,
+          longitude: opts.lng,
+        },
+        radius: opts.radiusMeters,
+      },
+    },
+  });
+
+  return placesToRestaurants(data.places ?? [], {
+    areaId: opts.areaId,
+    selected: [],
+    priceFilter: opts.priceFilter,
+    foodKind: opts.foodKind,
+  });
+}
+
 async function callPlacesApi(
   apiKey: string,
   endpoint: "searchNearby" | "searchText",
@@ -514,6 +590,7 @@ async function fetchSaladViaTextSearch(opts: {
   areaId: string;
   areaName?: string;
   priceFilter?: PriceFilter;
+  foodKind?: FoodKind;
 }): Promise<Restaurant[]> {
   const locationLabel = opts.areaName?.trim() || "near me";
   const circle = {
@@ -527,8 +604,8 @@ async function fetchSaladViaTextSearch(opts: {
   const [nearbyData, textData] = await Promise.all([
     callPlacesApi(opts.apiKey, "searchNearby", {
       includedPrimaryTypes: [...SALAD_PRIMARY_TYPES],
-      excludedTypes: [...EXCLUDED_NEARBY_TYPES],
-      excludedPrimaryTypes: [...EXCLUDED_NEARBY_TYPES],
+      excludedTypes: mealExcludedNearbyTypes(),
+      excludedPrimaryTypes: mealExcludedNearbyTypes(),
       maxResultCount: 20,
       rankPreference: "DISTANCE",
       languageCode: "en",
@@ -556,6 +633,7 @@ async function fetchSaladViaTextSearch(opts: {
     forceCuisine: "Salad",
     textSearch: true,
     priceFilter: opts.priceFilter ?? "any",
+    foodKind: "meal",
   });
 }
 
@@ -575,12 +653,22 @@ export async function fetchNearbyFoodPlaces(opts: {
   areaName?: string;
   cuisines?: string[];
   priceFilter?: PriceFilter;
+  foodKind?: FoodKind;
 }): Promise<Restaurant[]> {
-  const selected = opts.cuisines ?? [];
+  const foodKind = opts.foodKind ?? "meal";
+  const selected = foodKind === "meal" ? (opts.cuisines ?? []) : [];
   const priceFilter = opts.priceFilter ?? "any";
 
-  if (cuisineUsesTextSearch(selected)) {
+  if (foodKind === "meal" && cuisineUsesTextSearch(selected)) {
     return fetchSaladViaTextSearch({ ...opts, priceFilter });
+  }
+
+  if (foodKind === "snack" || foodKind === "drinks") {
+    return fetchByFoodKind({
+      ...opts,
+      foodKind,
+      priceFilter,
+    });
   }
 
   const primaryTypes = googleTypesForFilters(selected);
@@ -592,10 +680,7 @@ export async function fetchNearbyFoodPlaces(opts: {
         : ("POPULARITY" as const);
 
   const usePrimary = selected.length > 0;
-  const excludedTypes = [
-    ...EXCLUDED_NEARBY_TYPES,
-    ...EXCLUDED_SNACK_DRINK_NEARBY,
-  ];
+  const excludedTypes = mealExcludedNearbyTypes();
 
   const body = usePrimary
     ? {
@@ -644,5 +729,6 @@ export async function fetchNearbyFoodPlaces(opts: {
     areaId: opts.areaId,
     selected,
     priceFilter,
+    foodKind: "meal",
   });
 }

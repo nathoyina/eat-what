@@ -2,6 +2,7 @@
 
 import { FILTER_CUISINES, FILTER_PRICES } from "@/lib/cuisine-types";
 import {
+  FILTER_FOOD_KINDS,
   filtersComplete,
   WALK_RADIUS_OPTIONS,
   type Filters,
@@ -60,7 +61,7 @@ export function FilterBar({
         <div>
           <h2 className="font-display text-xl font-semibold">Filters</h2>
           <p className="mt-1 text-sm text-ink-muted">
-            Pick reach, price & cuisine, then find spots.
+            Pick meal, snack or drinks, then reach, price &amp; cuisine.
           </p>
         </div>
         {hasSearched && (
@@ -68,6 +69,32 @@ export function FilterBar({
             {loading ? "…" : candidateCount} spot{candidateCount === 1 ? "" : "s"}
           </p>
         )}
+      </div>
+
+      <div>
+        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-ink-muted">
+          Kind <span className="text-coral">*</span>
+        </p>
+        <div className="grid grid-cols-3 gap-2">
+          {FILTER_FOOD_KINDS.map((opt) => {
+            const on = filters.kind === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => onChange({ ...filters, kind: opt.id })}
+                className={`rounded-xl px-2 py-2.5 text-center transition ${
+                  on
+                    ? "bg-mint text-white"
+                    : "border border-border bg-bg-soft text-ink-muted hover:text-ink"
+                }`}
+              >
+                <span className="block text-sm font-bold">{opt.label}</span>
+                <span className="block text-[11px] opacity-80">{opt.hint}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div>
@@ -149,6 +176,7 @@ export function FilterBar({
         </p>
       </div>
 
+      {(filters.kind === "meal" || filters.kind == null) && (
       <div>
         <p className="mb-2 text-xs font-bold uppercase tracking-wider text-ink-muted">
           Cuisine <span className="text-coral">*</span>
@@ -199,6 +227,7 @@ export function FilterBar({
           })}
         </div>
       </div>
+      )}
 
       <button
         type="button"
@@ -211,7 +240,9 @@ export function FilterBar({
 
       {!ready && (
         <p className="text-center text-sm text-ink-muted">
-          Choose reach, price, and cuisine(s) to continue.
+          {filters.kind === "snack" || filters.kind === "drinks"
+            ? "Choose kind, reach, and price to continue."
+            : "Choose kind, reach, price, and cuisine(s) to continue."}
         </p>
       )}
     </section>

@@ -10,6 +10,7 @@ import {
 } from "@/lib/places-quota";
 import {
   REACH_KM,
+  type FoodKind,
   type PriceFilter,
   type Restaurant,
 } from "@/lib/types";
@@ -28,6 +29,11 @@ function quotaPayload(quota: Awaited<ReturnType<typeof getQuotaStatus>>) {
     remaining: quota.remaining,
     month: quota.month,
   };
+}
+
+function parseKind(raw: string | null): FoodKind {
+  if (raw === "snack" || raw === "drinks" || raw === "meal") return raw;
+  return "meal";
 }
 
 function parsePrice(raw: string | null): PriceFilter {
@@ -49,10 +55,14 @@ export async function GET(req: Request) {
   const lngParam = url.searchParams.get("lng");
   const reach = url.searchParams.get("reach") ?? "short";
   const price = parsePrice(url.searchParams.get("price"));
+  const kind = parseKind(url.searchParams.get("kind"));
   const cuisinesParam = url.searchParams.get("cuisines") ?? "";
-  const cuisines = cuisinesParam
-    ? cuisinesParam.split(",").map((c) => c.trim()).filter(Boolean)
-    : [];
+  const cuisines =
+    kind === "meal"
+      ? cuisinesParam
+        ? cuisinesParam.split(",").map((c) => c.trim()).filter(Boolean)
+        : []
+      : [];
 
   let areaKey = "singapore";
   let center = { lat: 1.3521, lng: 103.8198 };
@@ -89,7 +99,7 @@ export async function GET(req: Request) {
     Math.round((radiusKm ?? 8) * 1000),
   );
 
-  const cacheKey = `${areaKey}:${radiusMeters}:${price}:${cuisines.sort().join("|") || "all"}`;
+  const cacheKey = `${areaKey}:${radiusMeters}:${kind}:${price}:${cuisines.sort().join("|") || "all"}`;
   const cached = cache.get(cacheKey);
   const quota = await getQuotaStatus();
 
@@ -142,6 +152,7 @@ export async function GET(req: Request) {
       areaName: resolvedAreaName ?? areaName(resolvedAreaId),
       cuisines,
       priceFilter: price,
+      foodKind: kind,
     });
 
     if (!places.length) {
@@ -153,6 +164,8 @@ export async function GET(req: Request) {
             : price === "2"
               ? "$$ "
               : "$$$ ";
+      const kindLabel =
+        kind === "snack" ? "snack" : kind === "drinks" ? "drink" : "food";
       return Response.json({
         places: [],
         source: "places",
@@ -160,7 +173,7 @@ export async function GET(req: Request) {
         quota: quotaPayload(consumed),
         message: cuisines.length
           ? `No ${priceHint}${cuisines.join(" / ")} spots found nearby. Try another price or wider reach.`
-          : `No ${priceHint || ""}food places found nearby. Try a wider reach or another price.`,
+          : `No ${priceHint || ""}${kindLabel} places found nearby. Try a wider reach or another price.`,
       });
     }
 
