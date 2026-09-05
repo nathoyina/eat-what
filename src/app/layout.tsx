@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Nunito } from "next/font/google";
 import { Nav } from "@/components/Nav";
-import { getSiteUrl, SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE } from "@/lib/site";
+import { getSiteUrl, GOOGLE_SITE_VERIFICATION, SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE } from "@/lib/site";
 import "./globals.css";
 
 const display = Fraunces({
@@ -65,6 +65,9 @@ export const metadata: Metadata = {
     },
   },
   category: "food",
+  verification: {
+    google: GOOGLE_SITE_VERIFICATION,
+  },
 };
 
 export const viewport: Viewport = {
