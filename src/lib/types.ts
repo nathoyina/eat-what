@@ -33,8 +33,8 @@ export type FoodKind = "meal" | "snack" | "drinks";
 
 export type Reach = "walk" | "short" | "anywhere";
 
-/** Walk distance cap. Labels are bands; filter is still “within max”. */
-export type WalkRadius = "500" | "500-1000" | "1000-1500";
+/** Walk distance cap — within this many metres, no lower bound. */
+export type WalkRadius = "500" | "1000" | "1500";
 
 export type Filters = {
   /** null = not chosen yet */
@@ -126,8 +126,8 @@ export const WALK_RADIUS_OPTIONS: {
   maxKm: number;
 }[] = [
   { id: "500", label: "500 m", maxKm: 0.5 },
-  { id: "500-1000", label: "500–1 km", maxKm: 1 },
-  { id: "1000-1500", label: "1–1.5 km", maxKm: 1.5 },
+  { id: "1000", label: "1 km", maxKm: 1 },
+  { id: "1500", label: "1.5 km", maxKm: 1.5 },
 ];
 
 /** Places fetch always uses the walk max (1.5 km); this is the client filter cap. */
@@ -144,7 +144,7 @@ export function reachMaxKm(filters: {
   return REACH_KM[filters.reach];
 }
 
-/** True if distanceKm is within the selected reach / walk band max. */
+/** True if distanceKm is within the selected reach / walk max. */
 export function distanceInReach(
   distanceKm: number,
   filters: { reach: Reach; walkRadius: WalkRadius | null },
