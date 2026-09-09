@@ -188,7 +188,9 @@ export function matchesPriceFilter(
   filter: PriceFilter,
 ): boolean {
   if (filter === "any") return true;
-  if (level == null) return false;
+  // Google leaves most hawker stalls / small shops unpriced. In SG those are
+  // almost always the $ band — dropping them made "$" spins look empty.
+  if (level == null) return filter === "1";
   if (filter === "1") return level === 1;
   if (filter === "2") return level === 2;
   // $$$ band includes very expensive

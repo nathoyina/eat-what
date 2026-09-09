@@ -82,7 +82,8 @@ export function googleTypesForFilters(cuisines: string[] | undefined): string[] 
 
 export const DEFAULT_INCLUDED_TYPES = [
   "restaurant",
-  "cafe",
+  // SG kopitiams are typed coffee_shop; cafes belong in drinks.
+  "coffee_shop",
   "meal_takeaway",
   "food_court",
 ] as const;

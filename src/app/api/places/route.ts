@@ -1,5 +1,6 @@
 import { areaName, areas } from "@/lib/restaurants";
 import {
+  DRINKS_SEARCH_API_COST,
   fetchNearbyFoodPlaces,
   SALAD_SEARCH_API_COST,
 } from "@/lib/google-places";
@@ -10,6 +11,7 @@ import {
 } from "@/lib/places-quota";
 import {
   REACH_KM,
+  matchesPriceFilter,
   type FoodKind,
   type PriceFilter,
   type Restaurant,
@@ -41,11 +43,36 @@ function parsePrice(raw: string | null): PriceFilter {
   return "any";
 }
 
-function apiCost(cuisines: string[]): number {
+function apiCost(kind: FoodKind, cuisines: string[]): number {
+  if (kind === "drinks") return DRINKS_SEARCH_API_COST;
   if (cuisines.some((c) => cuisineUsesTextSearch([c]))) {
     return SALAD_SEARCH_API_COST;
   }
   return 1;
+}
+
+function emptyPlacesMessage(
+  price: PriceFilter,
+  kind: FoodKind,
+  cuisines: string[],
+): string {
+  const priceHint =
+    price === "any"
+      ? ""
+      : price === "1"
+        ? "$ "
+        : price === "2"
+          ? "$$ "
+          : "$$$ ";
+  const kindLabel =
+    kind === "snack" ? "snack" : kind === "drinks" ? "drink" : "food";
+  return cuisines.length
+    ? `No ${priceHint}${cuisines.join(" / ")} spots found nearby. Try another price or wider reach.`
+    : `No ${priceHint || ""}${kindLabel} places found nearby. Try a wider reach or another price.`;
+}
+
+function filterByPrice(places: Restaurant[], price: PriceFilter): Restaurant[] {
+  return places.filter((p) => matchesPriceFilter(p.priceLevel, price));
 }
 
 export async function GET(req: Request) {
@@ -99,13 +126,25 @@ export async function GET(req: Request) {
     Math.round((radiusKm ?? 8) * 1000),
   );
 
-  const cacheKey = `${areaKey}:${radiusMeters}:${kind}:${price}:${cuisines.sort().join("|") || "all"}`;
+  // Price is applied after fetch — Google Nearby ignores priceLevels and
+  // returns the same 20 spots for $ and Any.
+  const cacheKey = `${areaKey}:${radiusMeters}:${kind}:${cuisines.sort().join("|") || "all"}`;
   const cached = cache.get(cacheKey);
   const quota = await getQuotaStatus();
 
   if (cached && cached.expires > Date.now()) {
+    const places = filterByPrice(cached.places, price);
+    if (!places.length) {
+      return Response.json({
+        places: [],
+        source: "cache",
+        area: areaKey,
+        quota: quotaPayload(quota),
+        message: emptyPlacesMessage(price, kind, cuisines),
+      });
+    }
     return Response.json({
-      places: cached.places,
+      places,
       source: "cache",
       area: areaKey,
       quota: quotaPayload(quota),
@@ -128,7 +167,7 @@ export async function GET(req: Request) {
     });
   }
 
-  const consumed = await tryConsumeQuota(apiCost(cuisines));
+  const consumed = await tryConsumeQuota(apiCost(kind, cuisines));
   if (!consumed.allowed) {
     return Response.json(
       {
@@ -143,7 +182,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const places = await fetchNearbyFoodPlaces({
+    const catalog = await fetchNearbyFoodPlaces({
       apiKey,
       lat: center.lat,
       lng: center.lng,
@@ -151,33 +190,23 @@ export async function GET(req: Request) {
       areaId: resolvedAreaId,
       areaName: resolvedAreaName ?? areaName(resolvedAreaId),
       cuisines,
-      priceFilter: price,
       foodKind: kind,
     });
 
+    if (catalog.length) {
+      cache.set(cacheKey, { places: catalog, expires: Date.now() + TTL_MS });
+    }
+
+    const places = filterByPrice(catalog, price);
     if (!places.length) {
-      const priceHint =
-        price === "any"
-          ? ""
-          : price === "1"
-            ? "$ "
-            : price === "2"
-              ? "$$ "
-              : "$$$ ";
-      const kindLabel =
-        kind === "snack" ? "snack" : kind === "drinks" ? "drink" : "food";
       return Response.json({
         places: [],
         source: "places",
         area: areaKey,
         quota: quotaPayload(consumed),
-        message: cuisines.length
-          ? `No ${priceHint}${cuisines.join(" / ")} spots found nearby. Try another price or wider reach.`
-          : `No ${priceHint || ""}${kindLabel} places found nearby. Try a wider reach or another price.`,
+        message: emptyPlacesMessage(price, kind, cuisines),
       });
     }
-
-    cache.set(cacheKey, { places, expires: Date.now() + TTL_MS });
 
     return Response.json({
       places,

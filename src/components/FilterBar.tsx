@@ -171,8 +171,8 @@ export function FilterBar({
           })}
         </div>
         <p className="mt-2 text-xs text-ink-muted">
-          $ bands from Google Maps. SGD hints are rough meal-for-one estimates —
-          not a verified menu price.
+          $ bands from Google Maps. Stalls with no price listed count as $.
+          SGD hints are rough meal-for-one estimates — not a verified menu price.
         </p>
       </div>
 

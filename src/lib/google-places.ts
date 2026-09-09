@@ -80,14 +80,17 @@ const SNACK_PRIMARY_TYPES = new Set([
   "snack_bar",
 ]);
 
-/** Drink shops / bars — not cafes (cafes stay meals unless the name is a drink shop). */
+/**
+ * Drink venues. `cafe` counts as drinks (UI: tea, coffee & bars).
+ * Do NOT include `coffee_shop` — in SG that is a kopitiam (meals).
+ */
 const DRINK_PRIMARY_TYPES = new Set([
   "juice_shop",
   "tea_house",
   "tea_store",
   "coffee_roastery",
   "coffee_stand",
-  "coffee_shop",
+  "cafe",
   "wine_bar",
   "cocktail_bar",
   "bar",
@@ -96,6 +99,15 @@ const DRINK_PRIMARY_TYPES = new Set([
   "sports_bar",
   "hookah_bar",
   "lounge_bar",
+  "brewpub",
+  "bar_and_grill",
+]);
+
+/** Tea / juice — check `types[]` too; Google often sets primaryType to `service`. */
+const DRINK_TYPES_ANY = new Set([
+  "juice_shop",
+  "tea_house",
+  "tea_store",
 ]);
 
 /** Malls / retail — never treat as makan. */
@@ -133,7 +145,6 @@ const DRINK_SHOP_NEARBY_TYPES = [
   "tea_store",
   "coffee_roastery",
   "coffee_stand",
-  "coffee_shop",
   "wine_bar",
   "cocktail_bar",
   "bar",
@@ -141,10 +152,14 @@ const DRINK_SHOP_NEARBY_TYPES = [
   "brewery",
   "sports_bar",
   "hookah_bar",
+  "lounge_bar",
 ] as const;
 
-/** Include cafe so SG bubble-tea shops tagged as cafe still come back. */
+/** Cafe = coffee; omit coffee_shop so kopitiams don't fill the 20-result cap. */
 const DRINK_NEARBY_TYPES = [...DRINK_SHOP_NEARBY_TYPES, "cafe"] as const;
+
+/** Secondary types for mall kiosks Google tags as `service` (Beutea @ Mapletree). */
+const DRINK_TEA_JUICE_TYPES = ["juice_shop", "tea_house", "tea_store"] as const;
 
 /** Mall / plaza names that aren't food venues even if Google is fuzzy. */
 const MALL_NAME_PATTERN =
@@ -155,7 +170,15 @@ const NAMED_MALL_PATTERN = /\b(hillion)\b/i;
 
 /** Drink shop names Google often mistags as restaurant/cafe. */
 const DRINK_NAME_PATTERN =
-  /\b(bubble\s*tea|boba|bbt|milk\s*tea|fruit\s*tea|smoothie|juice\s*bar|tea\s*(shop|house|bar)|coffee\s*(bean|roaster)|wine\s*bar|cocktail\s*bar|liquor)\b/i;
+  /\b(bubble\s*tea|boba|bbt|milk\s*tea|fruit\s*tea|smoothie|juice\s*bar|kombucha|tea\s*(shop|house|bar)|coffee\s*(bean|roaster|lab)|wine\s*bar|cocktail\s*bar|liquor)\b/i;
+
+/** SG kopitiams are typed coffee_shop — meals, not drink bars. */
+const KOPITIAM_NAME_PATTERN =
+  /\b(coffeeshop|coffee\s*shop|kopitiam|nasi|beehoon|noodle|mee\b|hor\s*fun|economic|ekonomik|food\s*court|foodcourt)\b/i;
+
+/** Real coffee counters still typed coffee_shop (Luckin, Italian Coffee Lab). */
+const CAFE_NAME_PATTERN =
+  /\b(coffee|cafe|café|kopi|luckin|starbucks|barista)\b/i;
 
 /** Snack / dessert names Google often mistags as restaurant/cafe. */
 const SNACK_NAME_PATTERN =
@@ -166,7 +189,7 @@ const SNACK_NAME_PATTERN =
  * Google usually tags these as cafe or restaurant.
  */
 const DRINK_CHAIN_NAME_PATTERN =
-  /\b(playmade|play\s*made|丸作|liho|li\s*ho|gong\s*cha|gongcha|koi\s*th[eé]|koi\b|each\s*a\s*cup|sharetea|share\s*tea|the\s*alley|tiger\s*sugar|chicha|hey\s*tea|heytea|chagee|mr\.?\s*coconut|boost\s*juice|r\s*&\s*b\s*tea|xing\s*fu\s*tang|yi\s*fang|milksha|chatime|tealive|happy\s*lemon|presotea|come\s*buy|comebuy|one\s*zo|onezo|chun\s*yang|春陽|春阳|daboba|tea\s*hut|teahut|craft\s*tea|i.?teashop|trtea|tenren|五十嵐|50\s*lan|coco\s*fresh|coco\b|peach\s*garden|hong\s*tang|black\s*ball|moo\s*tea|teapot\b|tea\s*plus|tea\s*culture|tea\s*work|tea\s*story|kft\b|kung\s*fu\s*tea)\b/i;
+  /\b(playmade|play\s*made|丸作|liho|li\s*ho|gong\s*cha|gongcha|koi\s*th[eé]|koi\b|each\s*a\s*cup|sharetea|share\s*tea|the\s*alley|tiger\s*sugar|chicha|hey\s*tea|heytea|chagee|beutea|mr\.?\s*coconut|boost\s*juice|r\s*&\s*b\s*tea|xing\s*fu\s*tang|yi\s*fang|milksha|chatime|tealive|happy\s*lemon|presotea|come\s*buy|comebuy|one\s*zo|onezo|chun\s*yang|春陽|春阳|daboba|tea\s*hut|teahut|craft\s*tea|i.?teashop|trtea|tenren|五十嵐|50\s*lan|coco\s*fresh|coco\b|peach\s*garden|hong\s*tang|black\s*ball|moo\s*tea|teapot\b|tea\s*plus|tea\s*culture|tea\s*work|tea\s*story|kft\b|kung\s*fu\s*tea)\b/i;
 
 function nameLooksLikeSitDownRestaurant(primary: string): boolean {
   return Boolean(
@@ -178,10 +201,24 @@ function nameLooksLikeSitDownRestaurant(primary: string): boolean {
 
 function classifyFoodKind(p: PlaceResult): FoodKind {
   const primary = p.primaryType ?? "";
+  const types = p.types ?? [];
   const name = p.displayName?.text ?? "";
 
   if (DRINK_CHAIN_NAME_PATTERN.test(name)) return "drinks";
   if (primary && DRINK_PRIMARY_TYPES.has(primary)) return "drinks";
+  if (
+    types.some((t) => DRINK_TYPES_ANY.has(t)) &&
+    !nameLooksLikeSitDownRestaurant(primary)
+  ) {
+    return "drinks";
+  }
+  if (
+    primary === "coffee_shop" &&
+    !KOPITIAM_NAME_PATTERN.test(name) &&
+    CAFE_NAME_PATTERN.test(name)
+  ) {
+    return "drinks";
+  }
   if (primary && SNACK_PRIMARY_TYPES.has(primary)) return "snack";
 
   if (DRINK_NAME_PATTERN.test(name) && !nameLooksLikeSitDownRestaurant(primary)) {
@@ -394,6 +431,23 @@ function cuisineFromPlace(
   return selectedCuisines[0] ?? "Food";
 }
 
+function moneyAmount(m: Money | undefined): number | null {
+  if (!m) return null;
+  if (m.units == null && m.nanos == null) return null;
+  const amount = Number(m.units ?? 0) + (m.nanos ?? 0) / 1e9;
+  return Number.isFinite(amount) ? amount : null;
+}
+
+/** When Google has a range but no categorical priceLevel. */
+function priceLevelFromRange(p: PlaceResult): PriceLevel | null {
+  const start = moneyAmount(p.priceRange?.startPrice);
+  if (start == null) return null;
+  if (start < 15) return 1;
+  if (start < 40) return 2;
+  if (start < 80) return 3;
+  return 4;
+}
+
 function priceLevelFromPlace(p: PlaceResult): PriceLevel | null {
   switch (p.priceLevel) {
     case "PRICE_LEVEL_FREE":
@@ -406,7 +460,7 @@ function priceLevelFromPlace(p: PlaceResult): PriceLevel | null {
     case "PRICE_LEVEL_VERY_EXPENSIVE":
       return 4;
     default:
-      return null;
+      return priceLevelFromRange(p);
   }
 }
 
@@ -503,12 +557,13 @@ function placesToRestaurants(
   return [...byId.values()];
 }
 
-function mealExcludedNearbyTypes(): string[] {
-  return [
-    ...EXCLUDED_NON_EATERY_NEARBY,
-    ...SNACK_NEARBY_TYPES,
-    ...DRINK_SHOP_NEARBY_TYPES,
-  ];
+function mealExcludedTypes(): string[] {
+  return [...EXCLUDED_NON_EATERY_NEARBY];
+}
+
+/** Primary only — `bar`/`cafe` on types[] is common on restaurants & kopitiams. */
+function mealExcludedPrimaryTypes(): string[] {
+  return [...SNACK_NEARBY_TYPES, ...DRINK_NEARBY_TYPES];
 }
 
 async function fetchByFoodKind(opts: {
@@ -517,6 +572,7 @@ async function fetchByFoodKind(opts: {
   lng: number;
   radiusMeters: number;
   areaId: string;
+  areaName?: string;
   priceFilter: PriceFilter;
   foodKind: "snack" | "drinks";
 }): Promise<Restaurant[]> {
@@ -525,29 +581,52 @@ async function fetchByFoodKind(opts: {
   ];
   const excludedTypes = [
     ...EXCLUDED_NON_EATERY_NEARBY,
-    ...(opts.foodKind === "snack" ? DRINK_SHOP_NEARBY_TYPES : SNACK_NEARBY_TYPES),
+    ...(opts.foodKind === "snack" ? DRINK_NEARBY_TYPES : SNACK_NEARBY_TYPES),
   ];
 
-  const data = await callPlacesApi(opts.apiKey, "searchNearby", {
+  const circle = {
+    center: {
+      latitude: opts.lat,
+      longitude: opts.lng,
+    },
+    radius: opts.radiusMeters,
+  };
+
+  const nearbyBody = {
     includedPrimaryTypes,
     excludedTypes,
     excludedPrimaryTypes: excludedTypes,
     maxResultCount: 20,
-    rankPreference: "DISTANCE",
+    rankPreference: "DISTANCE" as const,
     languageCode: "en",
     regionCode: "SG",
-    locationRestriction: {
-      circle: {
-        center: {
-          latitude: opts.lat,
-          longitude: opts.lng,
-        },
-        radius: opts.radiusMeters,
-      },
-    },
-  });
+    locationRestriction: { circle },
+  };
 
-  return placesToRestaurants(data.places ?? [], {
+  // Tea kiosks in malls are often primaryType "service" (Beutea @ Mapletree)
+  // so includedPrimaryTypes misses them. A second Nearby on types[] catches them
+  // without a Text Search that ranks island-wide bubble-tea chains.
+  const [nearbyData, teaTypeData] = await Promise.all([
+    callPlacesApi(opts.apiKey, "searchNearby", nearbyBody),
+    opts.foodKind === "drinks"
+      ? callPlacesApi(opts.apiKey, "searchNearby", {
+          includedTypes: [...DRINK_TEA_JUICE_TYPES],
+          excludedTypes: [...EXCLUDED_NON_EATERY_NEARBY, "manufacturer"],
+          maxResultCount: 20,
+          rankPreference: "DISTANCE",
+          languageCode: "en",
+          regionCode: "SG",
+          locationRestriction: { circle },
+        })
+      : Promise.resolve({ places: [] as PlaceResult[] }),
+  ]);
+
+  const merged = new Map<string, PlaceResult>();
+  for (const p of [...(nearbyData.places ?? []), ...(teaTypeData.places ?? [])]) {
+    if (p.id) merged.set(p.id, p);
+  }
+
+  return placesToRestaurants([...merged.values()], {
     areaId: opts.areaId,
     selected: [],
     priceFilter: opts.priceFilter,
@@ -604,8 +683,8 @@ async function fetchSaladViaTextSearch(opts: {
   const [nearbyData, textData] = await Promise.all([
     callPlacesApi(opts.apiKey, "searchNearby", {
       includedPrimaryTypes: [...SALAD_PRIMARY_TYPES],
-      excludedTypes: mealExcludedNearbyTypes(),
-      excludedPrimaryTypes: mealExcludedNearbyTypes(),
+      excludedTypes: mealExcludedTypes(),
+      excludedPrimaryTypes: mealExcludedPrimaryTypes(),
       maxResultCount: 20,
       rankPreference: "DISTANCE",
       languageCode: "en",
@@ -640,9 +719,12 @@ async function fetchSaladViaTextSearch(opts: {
 /** Salad lookups use 2 Places API calls. */
 export const SALAD_SEARCH_API_COST = 2;
 
+/** Drinks: cafe/bar Nearby + tea/juice types Nearby. */
+export const DRINKS_SEARCH_API_COST = 2;
+
 /**
  * Nearby / Text Search with priceLevel → Enterprise SKU
- * (free tier ~1,000/month). Salad uses 2 calls.
+ * (free tier ~1,000/month). Salad and drinks use 2 calls.
  */
 export async function fetchNearbyFoodPlaces(opts: {
   apiKey: string;
@@ -657,7 +739,10 @@ export async function fetchNearbyFoodPlaces(opts: {
 }): Promise<Restaurant[]> {
   const foodKind = opts.foodKind ?? "meal";
   const selected = foodKind === "meal" ? (opts.cuisines ?? []) : [];
-  const priceFilter = opts.priceFilter ?? "any";
+  // Always fetch every price; the API route filters. Google Nearby
+  // ignores priceLevels, so post-filter on a mixed 20-hit set is the
+  // only way — and sharing that set across $ / $$ / any saves quota.
+  const priceFilter: PriceFilter = "any";
 
   if (foodKind === "meal" && cuisineUsesTextSearch(selected)) {
     return fetchSaladViaTextSearch({ ...opts, priceFilter });
@@ -672,15 +757,11 @@ export async function fetchNearbyFoodPlaces(opts: {
   }
 
   const primaryTypes = googleTypesForFilters(selected);
-  const rankPreference =
-    primaryTypes.length > 0 && selected.length === 0
-      ? ("POPULARITY" as const)
-      : selected.length > 0
-        ? ("DISTANCE" as const)
-        : ("POPULARITY" as const);
+  const rankPreference = "DISTANCE" as const;
 
   const usePrimary = selected.length > 0;
-  const excludedTypes = mealExcludedNearbyTypes();
+  const excludedTypes = mealExcludedTypes();
+  const excludedPrimaryTypes = mealExcludedPrimaryTypes();
 
   const body = usePrimary
     ? {
@@ -689,7 +770,7 @@ export async function fetchNearbyFoodPlaces(opts: {
           : [...DEFAULT_INCLUDED_TYPES]
         ).slice(0, 50),
         excludedTypes,
-        excludedPrimaryTypes: excludedTypes,
+        excludedPrimaryTypes,
         maxResultCount: 20,
         rankPreference,
         languageCode: "en",
@@ -707,7 +788,7 @@ export async function fetchNearbyFoodPlaces(opts: {
     : {
         includedTypes: [...DEFAULT_INCLUDED_TYPES],
         excludedTypes,
-        excludedPrimaryTypes: excludedTypes,
+        excludedPrimaryTypes,
         maxResultCount: 20,
         rankPreference,
         languageCode: "en",
