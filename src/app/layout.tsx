@@ -74,7 +74,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#16a34a",
+  themeColor: "#c8f53a",
   width: "device-width",
   initialScale: 1,
 };
@@ -94,12 +94,12 @@ export default function RootLayout({
         <GoogleAnalytics />
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-lime focus:px-3 focus:py-2 focus:text-sm focus:font-bold focus:text-white"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-lime-quiet focus:px-3 focus:py-2 focus:text-sm focus:font-bold focus:text-ink"
         >
           Skip to content
         </a>
         <Nav />
-        <main id="main" className="flex-1">
+        <main id="main" className="flex-1 bg-white">
           {children}
         </main>
       </body>

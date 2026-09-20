@@ -144,6 +144,53 @@ describe("placesToRestaurants", () => {
     expect(mid).toHaveLength(0);
   });
 
+  it("maps rating, first photo name, and openNow without inventing missing fields", () => {
+    const namedPhoto =
+      "places/ChIJsoup/photos/AUacShh3_Dd8yvV2JZMtNjjbbSbFhSv-0VmUN";
+    const rows = placesToRestaurants(
+      [
+        place({
+          id: "maxwell",
+          displayName: { text: "Maxwell Fish Soup" },
+          primaryType: "chinese_restaurant",
+          rating: 4.6,
+          photos: [{ name: namedPhoto }, { name: "places/ChIJsoup/photos/second" }],
+          currentOpeningHours: { openNow: true },
+          regularOpeningHours: { openNow: false },
+        }),
+        place({
+          id: "no-extras",
+          displayName: { text: "Plain Hawker" },
+          primaryType: "food_court",
+        }),
+        place({
+          id: "bad-photo",
+          displayName: { text: "Mystery Stall" },
+          primaryType: "food_court",
+          rating: 0,
+          photos: [{ name: "https://evil.example/photo.jpg" }],
+        }),
+      ],
+      {
+        areaId: "maxwell",
+        selected: ["Chinese"],
+        foodKind: "meal",
+        priceFilter: "any",
+      },
+    );
+    const soup = rows.find((r) => r.id === "maxwell");
+    const plain = rows.find((r) => r.id === "no-extras");
+    const bad = rows.find((r) => r.id === "bad-photo");
+    expect(soup?.rating).toBe(4.6);
+    expect(soup?.photoName).toBe(namedPhoto);
+    expect(soup?.openNow).toBe(true);
+    expect(plain?.rating).toBeUndefined();
+    expect(plain?.photoName).toBeUndefined();
+    expect(plain?.openNow).toBeUndefined();
+    expect(bad?.rating).toBeUndefined();
+    expect(bad?.photoName).toBeUndefined();
+  });
+
   it("maps mall tea kiosks into a drinks shortlist", () => {
     const rows = placesToRestaurants(
       [
@@ -289,7 +336,7 @@ describe("non-eatery Places filtering", () => {
         foodKind: "meal",
         priceFilter: "any",
       }),
-    ).toHaveLength(1);
+    ).toMatchObject([{ name: "Lunch Only Noodles", openNow: false }]);
   });
 
   it("keeps real cafes, restaurants, hawkers, park food centres, and drink chains", () => {
@@ -369,6 +416,8 @@ describe("Places field mask for Nearby + Text Search", () => {
     expect(PLACES_SEARCH_FIELD_MASK).toContain("places.primaryType");
     expect(PLACES_SEARCH_FIELD_MASK).toContain("places.types");
     expect(PLACES_SEARCH_FIELD_MASK).toContain("places.regularOpeningHours");
+    expect(PLACES_SEARCH_FIELD_MASK).toContain("places.rating");
+    expect(PLACES_SEARCH_FIELD_MASK).toContain("places.photos");
 
     const here = { latitude: 1.33, longitude: 103.73 };
     const lakeside = place({
