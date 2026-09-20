@@ -26,6 +26,12 @@ export type Restaurant = {
   googleMapsUri?: string;
   /** Google priceRange when present, e.g. "S$15–30". */
   priceRangeText?: string;
+  /** Google rating 1–5 when Places returned one. Never invent. */
+  rating?: number;
+  /** Places photo resource name `places/{id}/photos/{ref}`. */
+  photoName?: string;
+  /** Google `openNow` when current/regular hours reported it. */
+  openNow?: boolean;
 };
 
 /** What to look for — meals exclude snack/drink shops. */

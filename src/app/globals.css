@@ -8,6 +8,7 @@
   --ink-muted: #78716c;
   --lime: #16a34a;
   --lime-deep: #15803d;
+  --lime-quiet: #c8f53a;
   --coral: #ea580c;
   --coral-soft: #c2410c;
   --mint: #0d9488;
@@ -29,6 +30,7 @@
   --color-ink-muted: var(--ink-muted);
   --color-lime: var(--lime);
   --color-lime-deep: var(--lime-deep);
+  --color-lime-quiet: var(--lime-quiet);
   --color-coral: var(--coral);
   --color-coral-soft: var(--coral-soft);
   --color-mint: var(--mint);

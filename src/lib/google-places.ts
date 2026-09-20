@@ -9,6 +9,7 @@ import {
   googlePriceLevels,
   shouldSendPriceLevels,
 } from "./shortlist";
+import { parsePlacePhotoName } from "./place-photo";
 import {
   matchesPriceFilter,
   type FoodKind,
@@ -44,6 +45,8 @@ type PlacesNearbyResponse = {
     businessStatus?: string;
     regularOpeningHours?: PlaceOpeningHours;
     currentOpeningHours?: PlaceOpeningHours;
+    rating?: number;
+    photos?: Array<{ name?: string }>;
   }>;
   error?: { message?: string; status?: string };
 };
@@ -544,8 +547,8 @@ function isSaladPlace(p: PlaceResult): boolean {
 }
 
 /**
- * Enterprise SKU fields — priceLevel / priceRange / regularOpeningHours.
  * Nearby and Text Search share this mask via `callPlacesApi` (no extra calls).
+ * priceLevel / priceRange / hours are Enterprise; rating / photos are Pro.
  */
 export const PLACES_SEARCH_FIELD_MASK = [
   "places.id",
@@ -561,6 +564,8 @@ export const PLACES_SEARCH_FIELD_MASK = [
   "places.businessStatus",
   "places.regularOpeningHours",
   "places.currentOpeningHours",
+  "places.rating",
+  "places.photos",
 ].join(",");
 
 const TYPE_CUISINE: Record<string, string> = {
@@ -702,6 +707,28 @@ function priceRangeTextFromPlace(p: PlaceResult): string | undefined {
   return undefined;
 }
 
+/** Prefer live hours; omit rather than guess. */
+export function openNowFromPlace(p: PlaceResult): boolean | undefined {
+  if (typeof p.currentOpeningHours?.openNow === "boolean") {
+    return p.currentOpeningHours.openNow;
+  }
+  if (typeof p.regularOpeningHours?.openNow === "boolean") {
+    return p.regularOpeningHours.openNow;
+  }
+  return undefined;
+}
+
+export function ratingFromPlace(p: PlaceResult): number | undefined {
+  if (typeof p.rating !== "number" || !Number.isFinite(p.rating) || p.rating <= 0) {
+    return undefined;
+  }
+  return p.rating;
+}
+
+export function photoNameFromPlace(p: PlaceResult): string | undefined {
+  return parsePlacePhotoName(p.photos?.[0]?.name) ?? undefined;
+}
+
 export function placesToRestaurants(
   places: PlaceResult[],
   opts: {
@@ -758,6 +785,9 @@ export function placesToRestaurants(
       googleMapsQuery: `${name} ${address}`,
       googleMapsUri: p.googleMapsUri,
       priceRangeText: priceRangeTextFromPlace(p),
+      rating: ratingFromPlace(p),
+      photoName: photoNameFromPlace(p),
+      openNow: openNowFromPlace(p),
     });
   }
 

@@ -5,6 +5,7 @@ import {
   fetchThinShortlistFallback,
   SALAD_SEARCH_API_COST,
 } from "@/lib/google-places";
+import { getPlacesApiKey } from "@/lib/places-env";
 import { cuisineUsesTextSearch } from "@/lib/cuisine-types";
 import {
   getQuotaStatus,
@@ -159,10 +160,7 @@ export async function GET(req: Request) {
   const cached = cache.get(cacheKey);
   let quota = await getQuotaStatus();
 
-  const apiKey =
-    process.env.GOOGLE_PLACES_API_KEY ??
-    process.env.GOOGLE_MAPS_API_KEY ??
-    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const apiKey = getPlacesApiKey();
 
   const fallbackOpts = {
     apiKey: apiKey ?? "",

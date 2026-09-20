@@ -6,12 +6,11 @@ import { ResultCard } from "@/components/ResultCard";
 import { EmptySpotsPanel, SingleSpotPanel } from "@/components/SpotCountRecovery";
 import { SpinWheel } from "@/components/SpinWheel";
 import { useSavedIdSet } from "@/lib/hooks";
-import { pickPun } from "@/lib/puns";
+import { areas, filterRestaurants, pickWheelCandidates } from "@/lib/restaurants";
 import {
-  areaName,
-  filterRestaurants,
-  pickWheelCandidates,
-} from "@/lib/restaurants";
+  originFromLocation,
+  walkLabelFromOrigin,
+} from "@/lib/result-card";
 import {
   MIN_WHEEL_CANDIDATES,
   applyRecoveryAction,
@@ -43,7 +42,6 @@ export function HomeApp() {
   const [spinning, setSpinning] = useState(false);
   const [targetIndex, setTargetIndex] = useState<number | null>(null);
   const [winner, setWinner] = useState<Restaurant | null>(null);
-  const [pun, setPun] = useState("");
   const savedIds = useSavedIdSet();
 
   const placesState = usePlaces(searchRequest);
@@ -119,7 +117,6 @@ export function HomeApp() {
     if (pool.length !== 1 || spinning) return;
     const only = pool[0];
     setWinner(only);
-    setPun(pickPun(only.cuisine));
     setTargetIndex(null);
     setSpinning(false);
   };
@@ -143,7 +140,6 @@ export function HomeApp() {
     (rest: Restaurant) => {
       setSpinning(false);
       setWinner(rest);
-      setPun(pickPun(rest.cuisine));
     },
     [],
   );
@@ -429,8 +425,10 @@ export function HomeApp() {
           {winner && (
             <ResultCard
               restaurant={winner}
-              pun={pun}
-              areaLabel={areaName(winner.area)}
+              walkLabel={walkLabelFromOrigin(
+                originFromLocation(location, areas),
+                winner,
+              )}
               saved={savedIds.has(winner.id)}
               onSave={handleSave}
               onSpinAgain={handleSpinAgain}
