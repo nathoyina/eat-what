@@ -13,3 +13,9 @@ export const quietSecondaryCta =
   "inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-ink bg-white px-5 py-3.5 text-base font-bold text-ink transition hover:bg-bg-soft";
 export const quietTertiaryCta =
   "inline-flex w-full items-center justify-center gap-2 text-sm font-semibold text-ink-muted underline-offset-2 transition hover:text-ink hover:underline disabled:opacity-50";
+export const quietPrimaryCtaCompact =
+  "inline-flex items-center justify-center gap-2 rounded-full bg-lime-quiet px-8 py-3.5 text-base font-bold text-ink transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40";
+export const quietReelFrame =
+  "pointer-events-none absolute inset-x-0 z-10 rounded-2xl border-2 border-ink";
+export const quietReelViewport =
+  "overflow-hidden rounded-3xl border border-border bg-white";

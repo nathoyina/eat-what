@@ -18,14 +18,14 @@ export default function SavedPage() {
       </p>
 
       {spots.length === 0 ? (
-        <div className="mt-10 rounded-2xl border border-border bg-bg-soft px-5 py-10 text-center">
+        <div className="mt-10 rounded-2xl border border-border bg-white px-5 py-10 text-center">
           <p className="font-semibold">No saves yet.</p>
           <p className="mt-1 text-sm text-ink-muted">
             Spin, land on a winner, then tap Save for later.
           </p>
           <Link
             href="/"
-            className="mt-5 inline-block rounded-xl bg-lime px-5 py-2.5 text-sm font-bold text-white"
+            className="mt-5 inline-flex rounded-full bg-lime-quiet px-5 py-2.5 text-sm font-bold text-ink"
           >
             Go spin
           </Link>
@@ -53,7 +53,7 @@ export default function SavedPage() {
                 <button
                   type="button"
                   onClick={() => removeSaved(spot.id)}
-                  className="shrink-0 text-xs font-semibold text-ink-muted hover:text-coral"
+                  className="shrink-0 text-xs font-semibold text-ink-muted hover:text-ink"
                 >
                   Remove
                 </button>
@@ -62,7 +62,7 @@ export default function SavedPage() {
                 href={googleMapsUrl(spot)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-3 inline-block text-sm font-bold text-lime hover:underline"
+                className="mt-3 inline-block text-sm font-semibold text-ink-muted underline-offset-2 hover:text-ink hover:underline"
               >
                 Open in Google Maps →
               </a>

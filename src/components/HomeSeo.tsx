@@ -3,7 +3,7 @@ import { homeFaqs } from "@/lib/seo";
 
 export function HomeSeo() {
   return (
-    <div className="border-t border-border bg-bg-soft">
+    <div className="border-t border-border bg-white">
       <div className="mx-auto max-w-3xl space-y-14 px-5 py-16 md:px-8">
         <section aria-labelledby="how-it-works-heading">
           <h2

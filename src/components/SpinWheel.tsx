@@ -2,6 +2,7 @@
 
 import type { Restaurant } from "@/lib/types";
 import { reelPriceSymbols } from "@/lib/types";
+import { quietPrimaryCtaCompact, quietReelFrame, quietReelViewport } from "@/lib/quiet-ui";
 import {
   REEL_ITEM_H,
   REEL_LOOPS,
@@ -72,7 +73,7 @@ export function SpinWheel({
     <div className="flex flex-col items-center gap-6">
       <div className="relative w-full max-w-md">
         <div
-          className="pointer-events-none absolute inset-x-0 z-10 rounded-2xl border-2 border-lime bg-lime/5"
+          className={quietReelFrame}
           style={{ top: REEL_ITEM_H, height: REEL_ITEM_H }}
           aria-hidden
         />
@@ -80,19 +81,16 @@ export function SpinWheel({
           className="pointer-events-none absolute left-0 top-1/2 z-20 -translate-y-1/2"
           aria-hidden
         >
-          <div className="h-0 w-0 border-y-[10px] border-l-[14px] border-y-transparent border-l-coral" />
+          <div className="h-0 w-0 border-y-[10px] border-l-[14px] border-y-transparent border-l-ink" />
         </div>
         <div
           className="pointer-events-none absolute right-0 top-1/2 z-20 -translate-y-1/2"
           aria-hidden
         >
-          <div className="h-0 w-0 border-y-[10px] border-r-[14px] border-y-transparent border-r-coral" />
+          <div className="h-0 w-0 border-y-[10px] border-r-[14px] border-y-transparent border-r-ink" />
         </div>
 
-        <div
-          className="overflow-hidden rounded-3xl border border-border bg-bg-soft shadow-sm"
-          style={{ height: viewportH }}
-        >
+        <div className={quietReelViewport} style={{ height: viewportH }}>
           <span className="sr-only">
             Vertical spin reel with {candidates.length} restaurants
             {winner ? `, landed on ${winner.name}` : ""}
@@ -108,10 +106,10 @@ export function SpinWheel({
             {strip.map((r, i) => (
               <div
                 key={`${r.id}-${i}`}
-                className="flex flex-col justify-center border-b border-border/60 px-5"
+                className="flex flex-col justify-center border-b border-border/60 bg-white px-5"
                 style={{ height: REEL_ITEM_H }}
               >
-                <p className="line-clamp-2 font-display text-base font-bold leading-snug text-ink sm:text-lg">
+                <p className="line-clamp-2 text-base font-bold leading-snug text-ink sm:text-lg">
                   {r.name}
                 </p>
                 <p className="mt-0.5 truncate text-xs text-ink-muted">
@@ -123,11 +121,11 @@ export function SpinWheel({
         </div>
 
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-10 rounded-t-3xl bg-gradient-to-b from-bg-soft to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 h-10 rounded-t-3xl bg-gradient-to-b from-white to-transparent"
           aria-hidden
         />
         <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-10 rounded-b-3xl bg-gradient-to-t from-bg-soft to-transparent"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-10 rounded-b-3xl bg-gradient-to-t from-white to-transparent"
           aria-hidden
         />
       </div>
@@ -136,7 +134,7 @@ export function SpinWheel({
         type="button"
         onClick={onSpinRequest}
         disabled={disabled || spinning || candidates.length < 2}
-        className="min-w-[200px] rounded-2xl bg-lime px-8 py-3.5 font-display text-lg font-bold text-white shadow-sm transition enabled:hover:bg-lime-deep enabled:hover:scale-[1.02] enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+        className={quietPrimaryCtaCompact}
       >
         {spinning ? "Spinning…" : "Spin"}
       </button>

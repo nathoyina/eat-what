@@ -1,5 +1,6 @@
 "use client";
 
+import { quietChipIdle, quietChipSelected } from "@/lib/quiet-ui";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -12,11 +13,11 @@ export function Nav() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-bg/90 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-border bg-white/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
         <Link
           href="/"
-          className="font-display text-lg font-semibold tracking-tight text-ink"
+          className="text-lg font-semibold tracking-tight text-ink"
         >
           Eat What
         </Link>
@@ -30,11 +31,7 @@ export function Nav() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
-                  active
-                    ? "bg-lime/10 text-lime"
-                    : "text-ink-muted hover:text-ink"
-                }`}
+                className={active ? quietChipSelected : quietChipIdle}
               >
                 {link.label}
               </Link>
