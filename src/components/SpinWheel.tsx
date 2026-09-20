@@ -1,15 +1,22 @@
 "use client";
 
 import type { Restaurant } from "@/lib/types";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { reelPriceSymbols } from "@/lib/types";
+import {
+  REEL_ITEM_H,
+  REEL_LOOPS,
+  REEL_VISIBLE,
+  reelCenterOffset,
+  reelDisplayIndex,
+} from "@/lib/spin-reel";
+import { useEffect, useMemo } from "react";
 
-const ITEM_H = 88;
-const VISIBLE = 3;
-const LOOPS = 6;
 const SPIN_MS = 4200;
 
 type Props = {
   candidates: Restaurant[];
+  /** Settled ResultCard place — idle frame must show this row. */
+  winner?: Restaurant | null;
   spinning: boolean;
   targetIndex: number | null;
   onSpinEnd: (winner: Restaurant) => void;
@@ -17,70 +24,56 @@ type Props = {
   disabled?: boolean;
 };
 
+function reelSubtitle(r: Restaurant): string {
+  const price = reelPriceSymbols(r.priceLevel);
+  return price ? `${r.cuisine} · ${price}` : r.cuisine;
+}
+
 export function SpinWheel({
   candidates,
+  winner = null,
   spinning,
   targetIndex,
   onSpinEnd,
   onSpinRequest,
   disabled,
 }: Props) {
-  const [offsetY, setOffsetY] = useState(() => centerOffset(0));
-  const [animate, setAnimate] = useState(false);
-  const spinningRef = useRef(false);
   const candidatesKey = candidates.map((c) => c.id).join("|");
+  const winnerId = winner?.id ?? null;
+  const n = candidates.length;
 
   const strip = useMemo(() => {
-    if (candidates.length === 0) return [];
-    return Array.from({ length: LOOPS + 2 }, () => candidates).flat();
+    if (n === 0) return [];
+    return Array.from({ length: REEL_LOOPS + 2 }, () => candidates).flat();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidatesKey]);
 
-  // Reset when the candidate list changes (new search / reshuffle)
-  useEffect(() => {
-    spinningRef.current = false;
-    setAnimate(false);
-    setOffsetY(centerOffset(0));
-  }, [candidatesKey]);
+  const displayIndex = reelDisplayIndex({
+    candidates,
+    targetIndex,
+    spinning,
+    winnerId,
+  });
+  const offsetY = reelCenterOffset(displayIndex);
 
   useEffect(() => {
-    if (!spinning || targetIndex == null || candidates.length === 0) return;
-    if (spinningRef.current) return;
-    spinningRef.current = true;
-
-    const n = candidates.length;
-    const prepIndex = targetIndex;
-    const landIndex = LOOPS * n + targetIndex;
-
-    setAnimate(false);
-    setOffsetY(centerOffset(prepIndex));
-
-    const frame = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setAnimate(true);
-        setOffsetY(centerOffset(landIndex));
-      });
-    });
-
+    if (!spinning || targetIndex == null || n === 0) return;
+    const chosen = candidates[targetIndex];
+    if (!chosen) return;
     const timeout = window.setTimeout(() => {
-      spinningRef.current = false;
-      onSpinEnd(candidates[targetIndex]);
+      onSpinEnd(chosen);
     }, SPIN_MS);
+    return () => window.clearTimeout(timeout);
+  }, [spinning, targetIndex, n, candidates, onSpinEnd]);
 
-    return () => {
-      cancelAnimationFrame(frame);
-      clearTimeout(timeout);
-    };
-  }, [spinning, targetIndex, candidates, onSpinEnd]);
-
-  const viewportH = ITEM_H * VISIBLE;
+  const viewportH = REEL_ITEM_H * REEL_VISIBLE;
 
   return (
     <div className="flex flex-col items-center gap-6">
       <div className="relative w-full max-w-md">
         <div
           className="pointer-events-none absolute inset-x-0 z-10 rounded-2xl border-2 border-lime bg-lime/5"
-          style={{ top: ITEM_H, height: ITEM_H }}
+          style={{ top: REEL_ITEM_H, height: REEL_ITEM_H }}
           aria-hidden
         />
         <div
@@ -102,11 +95,12 @@ export function SpinWheel({
         >
           <span className="sr-only">
             Vertical spin reel with {candidates.length} restaurants
+            {winner ? `, landed on ${winner.name}` : ""}
           </span>
           <div
             style={{
               transform: `translateY(${offsetY}px)`,
-              transition: animate
+              transition: spinning
                 ? `transform ${SPIN_MS}ms cubic-bezier(0.12, 0.75, 0.08, 1)`
                 : "none",
             }}
@@ -115,16 +109,13 @@ export function SpinWheel({
               <div
                 key={`${r.id}-${i}`}
                 className="flex flex-col justify-center border-b border-border/60 px-5"
-                style={{ height: ITEM_H }}
+                style={{ height: REEL_ITEM_H }}
               >
                 <p className="line-clamp-2 font-display text-base font-bold leading-snug text-ink sm:text-lg">
                   {r.name}
                 </p>
                 <p className="mt-0.5 truncate text-xs text-ink-muted">
-                  {r.cuisine}
-                  {r.priceLevel != null
-                    ? ` · ${"$".repeat(r.priceLevel)}`
-                    : ""}
+                  {reelSubtitle(r)}
                 </p>
               </div>
             ))}
@@ -151,9 +142,4 @@ export function SpinWheel({
       </button>
     </div>
   );
-}
-
-/** Offset so item at `index` sits in the middle row of the viewport. */
-function centerOffset(index: number): number {
-  return -(index * ITEM_H) + ITEM_H;
 }

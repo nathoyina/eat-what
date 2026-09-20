@@ -266,7 +266,8 @@ export async function GET(req: Request) {
         source: "quota",
         area: areaKey,
         quota: quotaPayload(consumed),
-        message: `Monthly API cap reached (${consumed.used}/${consumed.cap} calls used). Resets on the 1st of next month. Cached searches still work.`,
+        message:
+          "New place lookups are paused for now. Try a search you already ran, or come back later.",
       },
       { status: 429 },
     );

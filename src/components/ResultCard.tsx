@@ -21,6 +21,10 @@ export function ResultCard({
   onSpinAgain,
 }: Props) {
   const maps = googleMapsUrl(restaurant);
+  const priceLabel = formatPriceLabel(
+    restaurant.priceLevel,
+    restaurant.priceRangeText,
+  );
 
   return (
     <div className="animate-result-in space-y-4 rounded-3xl border border-border bg-bg-elevated p-5 shadow-sm">
@@ -33,12 +37,12 @@ export function ResultCard({
       <p className="text-base italic text-coral">&ldquo;{pun}&rdquo;</p>
 
       <dl className="grid grid-cols-2 gap-3 text-sm">
-        <div>
-          <dt className="text-ink-muted">Price</dt>
-          <dd className="font-semibold">
-            {formatPriceLabel(restaurant.priceLevel, restaurant.priceRangeText)}
-          </dd>
-        </div>
+        {priceLabel ? (
+          <div>
+            <dt className="text-ink-muted">Price</dt>
+            <dd className="font-semibold">{priceLabel}</dd>
+          </div>
+        ) : null}
         <div>
           <dt className="text-ink-muted">Cuisine</dt>
           <dd className="font-semibold">{restaurant.cuisine}</dd>

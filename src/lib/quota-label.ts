@@ -17,7 +17,7 @@ function nextResetLabel(monthKey: string): string {
   });
 }
 
-/** Human-readable monthly quota line for the UI */
+/** Human-readable monthly quota line — server/logs only, never user-facing UI. */
 export function formatQuotaLabel(quota: QuotaInfo): string {
   const reset = quota.month ? nextResetLabel(quota.month) : "";
   const resetSuffix = reset ? ` · resets ${reset}` : "";

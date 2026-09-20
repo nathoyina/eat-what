@@ -2,10 +2,28 @@ import { describe, expect, it } from "vitest";
 import {
   distanceInReach,
   filtersComplete,
+  formatPriceLabel,
   matchesPriceFilter,
+  reelPriceSymbols,
   toCompleteFilters,
   type Filters,
 } from "./types";
+
+describe("reelPriceSymbols / formatPriceLabel", () => {
+  it("uses the same $–$$$$ symbols on the reel and ResultCard", () => {
+    expect(reelPriceSymbols(1)).toBe("$");
+    expect(reelPriceSymbols(3)).toBe("$$$");
+    expect(formatPriceLabel(1)).toMatch(/^\$ /);
+    expect(formatPriceLabel(3, "S$40–80")).toBe("$$$ · S$40–80");
+  });
+
+  it("hides missing prices instead of showing Price n/a", () => {
+    expect(reelPriceSymbols(null)).toBeNull();
+    expect(formatPriceLabel(null)).toBeNull();
+    expect(formatPriceLabel(undefined)).toBeNull();
+    expect(formatPriceLabel(null)?.includes("n/a") ?? false).toBe(false);
+  });
+});
 
 describe("matchesPriceFilter", () => {
   it("lets any price through, including unpriced", () => {

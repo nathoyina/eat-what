@@ -19,7 +19,6 @@ import {
 import { saveSpot } from "@/lib/storage";
 import type { Filters, LocationMode, Restaurant } from "@/lib/types";
 import { toCompleteFilters } from "@/lib/types";
-import { formatQuotaLabel } from "@/lib/quota-label";
 import { usePlaces, type SearchRequest } from "@/lib/usePlaces";
 import { useCallback, useMemo, useState } from "react";
 
@@ -339,9 +338,6 @@ export function HomeApp() {
                 <span className="text-mint">
                   {pool.length} Google Maps place{pool.length === 1 ? "" : "s"}
                   {placesState.source === "cache" ? " (cached)" : ""}
-                  {placesState.quota
-                    ? ` · ${formatQuotaLabel(placesState.quota)}`
-                    : ""}
                 </span>
               )}
               {placesState.status !== "loading" && pool.length === 0 && (
@@ -412,6 +408,7 @@ export function HomeApp() {
               ) : (
                 <SpinWheel
                   candidates={candidates}
+                  winner={winner}
                   spinning={spinning}
                   targetIndex={targetIndex}
                   onSpinRequest={handleSpinRequest}
