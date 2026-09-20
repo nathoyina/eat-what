@@ -62,19 +62,19 @@ export const FILTER_FOOD_KINDS: {
 /**
  * Growth experiment A — defaults-only activation.
  * Applied after the user picks an area or GPS location so Find spots unlocks
- * without extra filter taps. Short ride is reach=short with no walk radius.
+ * without extra filter taps. Walk defaults to the 500 m cap.
  */
 export const ACTIVATION_DEFAULT_FILTERS: Filters = {
   kind: "meal",
   cuisines: ["any"],
   price: "any",
-  reach: "short",
-  walkRadius: null,
+  reach: "walk",
+  walkRadius: "500",
 };
 
 /**
- * Fill only unset filter fields. Never assigns a walk radius to short ride
- * or anywhere; walk stays incomplete until the user picks a cap.
+ * Fill only unset filter fields. Walk gets 500 m when no cap is set.
+ * Short ride / anywhere never carry a walk radius.
  */
 export function withActivationDefaults(filters: Filters): Filters {
   const kind = filters.kind ?? ACTIVATION_DEFAULT_FILTERS.kind;
@@ -83,7 +83,10 @@ export function withActivationDefaults(filters: Filters): Filters {
   const cuisines =
     filters.cuisines ??
     (kind === "meal" ? ACTIVATION_DEFAULT_FILTERS.cuisines : null);
-  const walkRadius = reach === "walk" ? filters.walkRadius : null;
+  const walkRadius =
+    reach === "walk"
+      ? (filters.walkRadius ?? ACTIVATION_DEFAULT_FILTERS.walkRadius)
+      : null;
   return { kind, cuisines, price, reach, walkRadius };
 }
 

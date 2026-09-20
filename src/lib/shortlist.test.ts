@@ -264,8 +264,8 @@ describe("empty / single-spot recovery UX", () => {
     expect(ui.canWidenReach).toBe(true);
     expect(applyRecoveryAction(ACTIVATION_DEFAULT_FILTERS, "widen-reach")).toEqual({
       ...ACTIVATION_DEFAULT_FILTERS,
-      reach: "anywhere",
-      walkRadius: null,
+      reach: "walk",
+      walkRadius: "1000",
     });
   });
 });

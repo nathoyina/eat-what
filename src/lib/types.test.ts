@@ -131,13 +131,13 @@ describe("activation defaults (experiment A)", () => {
     walkRadius: null,
   };
 
-  it("pre-fills Meal · Short ride · Any price · Any cuisine after a location pick", () => {
+  it("pre-fills Meal · Walk · 500 m · Any price · Any cuisine after a location pick", () => {
     expect(ACTIVATION_DEFAULT_FILTERS).toEqual({
       kind: "meal",
       cuisines: ["any"],
       price: "any",
-      reach: "short",
-      walkRadius: null,
+      reach: "walk",
+      walkRadius: "500",
     });
     const filled = withActivationDefaults(empty);
     expect(filled).toEqual(ACTIVATION_DEFAULT_FILTERS);
@@ -146,17 +146,32 @@ describe("activation defaults (experiment A)", () => {
       kind: "meal",
       cuisines: ["any"],
       price: "any",
-      reach: "short",
-      walkRadius: null,
+      reach: "walk",
+      walkRadius: "500",
     });
   });
 
-  it("keeps Short ride as reach=short with walkRadius null, not walk", () => {
-    expect(withActivationDefaults(empty).walkRadius).toBeNull();
+  it("defaults Walk to 500 m, not Short ride", () => {
+    expect(withActivationDefaults(empty)).toEqual({
+      kind: "meal",
+      cuisines: ["any"],
+      price: "any",
+      reach: "walk",
+      walkRadius: "500",
+    });
+    expect(
+      withActivationDefaults({ ...empty, reach: "walk", walkRadius: null }),
+    ).toEqual(ACTIVATION_DEFAULT_FILTERS);
+  });
+
+  it("clears walkRadius when the user already chose short ride or anywhere", () => {
     expect(
       withActivationDefaults({ ...empty, reach: "short", walkRadius: "500" }),
     ).toEqual({
-      ...ACTIVATION_DEFAULT_FILTERS,
+      kind: "meal",
+      cuisines: ["any"],
+      price: "any",
+      reach: "short",
       walkRadius: null,
     });
   });
@@ -180,16 +195,8 @@ describe("activation defaults (experiment A)", () => {
       kind: "meal",
       cuisines: ["Japanese"],
       price: "any",
-      reach: "short",
-      walkRadius: null,
+      reach: "walk",
+      walkRadius: "500",
     });
-  });
-
-  it("leaves walk incomplete until a radius is picked", () => {
-    expect(
-      filtersComplete(
-        withActivationDefaults({ ...empty, reach: "walk" }),
-      ),
-    ).toBe(false);
   });
 });
