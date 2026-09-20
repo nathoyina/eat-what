@@ -114,10 +114,27 @@ describe("share payload", () => {
     expect(await shareResult(payload)).toBe("shared");
     expect(share).toHaveBeenCalledWith(payload);
 
-    const abort = new Error("Ignore");
-    abort.name = "AbortError";
-    share.mockRejectedValueOnce(abort);
+    const slowAbort = new Error("Ignore");
+    slowAbort.name = "AbortError";
+    share.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          setTimeout(() => reject(slowAbort), 350);
+        }),
+    );
     expect(await shareResult(payload)).toBe("aborted");
+
+    const instantAbort = new Error("No share UI");
+    instantAbort.name = "AbortError";
+    const writeText = vi.fn(async () => undefined);
+    vi.stubGlobal("navigator", {
+      share: vi.fn(async () => {
+        throw instantAbort;
+      }),
+      clipboard: { writeText },
+    });
+    expect(await shareResult(payload)).toBe("copied");
+    expect(writeText).toHaveBeenCalled();
 
     vi.stubGlobal("navigator", {
       clipboard: { writeText: vi.fn(async () => undefined) },

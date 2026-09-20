@@ -97,18 +97,36 @@ export function formatShareClipboard(payload: SharePayload): string {
 
 export type ShareOutcome = "shared" | "copied" | "aborted" | "failed";
 
+function isAbortError(err: unknown): boolean {
+  return err instanceof Error && err.name === "AbortError";
+}
+
+export function canUseNativeShare(payload: SharePayload): boolean {
+  if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
+    return false;
+  }
+  if (typeof navigator.canShare === "function") {
+    try {
+      if (!navigator.canShare(payload)) return false;
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
 export async function shareResult(
   payload: SharePayload,
 ): Promise<ShareOutcome> {
-  if (
-    typeof navigator !== "undefined" &&
-    typeof navigator.share === "function"
-  ) {
+  if (canUseNativeShare(payload)) {
+    const started = Date.now();
     try {
       await navigator.share(payload);
       return "shared";
     } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
+      // User-dismissed sheets take longer. An instant AbortError usually means
+      // the browser exposed share() with no actual share UI (desktop Linux).
+      if (isAbortError(err) && Date.now() - started > 300) {
         return "aborted";
       }
     }

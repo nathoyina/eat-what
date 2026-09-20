@@ -129,8 +129,8 @@ export function ResultCard({
     });
     const outcome = await shareResult(payload);
     if (outcome === "copied") setShareStatus("Link copied");
+    else if (outcome === "shared") setShareStatus("Shared");
     else if (outcome === "failed") setShareStatus("Couldn’t share");
-    else if (outcome === "shared") setShareStatus(null);
     else setShareStatus(null);
   };
 
