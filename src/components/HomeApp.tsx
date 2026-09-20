@@ -3,6 +3,7 @@
 import { FilterBar } from "@/components/FilterBar";
 import { LocationPicker } from "@/components/LocationPicker";
 import { ResultCard } from "@/components/ResultCard";
+import { EmptySpotsPanel, SingleSpotPanel } from "@/components/SpotCountRecovery";
 import { SpinWheel } from "@/components/SpinWheel";
 import { useSavedIdSet } from "@/lib/hooks";
 import { pickPun } from "@/lib/puns";
@@ -13,8 +14,9 @@ import {
 } from "@/lib/restaurants";
 import {
   MIN_WHEEL_CANDIDATES,
-  walkRadiusLabel,
-  walkThinMessage,
+  applyRecoveryAction,
+  recoveryUi,
+  type RecoveryAction,
 } from "@/lib/shortlist";
 import { saveSpot } from "@/lib/storage";
 import type { Filters, LocationMode, Restaurant } from "@/lib/types";
@@ -66,14 +68,10 @@ export function HomeApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [poolKey, reshuffle]);
 
-  const walkHint = useMemo(() => {
-    if (!searchRequest || searchRequest.filters.reach !== "walk") return null;
-    return walkThinMessage({
-      inRange: pool.length,
-      fetched: placesState.places.length,
-      walkLabel: walkRadiusLabel(searchRequest.filters.walkRadius),
-    });
-  }, [searchRequest, pool.length, placesState.places.length]);
+  const poolRecovery = useMemo(() => {
+    if (!searchRequest) return null;
+    return recoveryUi({ count: pool.length, filters: searchRequest.filters });
+  }, [searchRequest, pool.length]);
 
   const clearResults = () => {
     setSearchRequest(null);
@@ -93,9 +91,10 @@ export function HomeApp() {
     clearResults();
   };
 
-  const handleFindSpots = () => {
+  const searchWithFilters = (next: Filters) => {
+    setFilters(next);
     if (location.type === "none") return;
-    const complete = toCompleteFilters(filters);
+    const complete = toCompleteFilters(next);
     if (!complete) return;
     setSearchRequest({
       location,
@@ -108,6 +107,10 @@ export function HomeApp() {
     setReshuffle((n) => n + 1);
   };
 
+  const handleFindSpots = () => {
+    searchWithFilters(filters);
+  };
+
   const handleTakeOnlySpot = () => {
     if (pool.length !== 1 || spinning) return;
     const only = pool[0];
@@ -115,6 +118,13 @@ export function HomeApp() {
     setPun(pickPun(only.cuisine));
     setTargetIndex(null);
     setSpinning(false);
+  };
+
+  const handleRecovery = (action: RecoveryAction) => {
+    if (!searchRequest || spinning) return;
+    const next = applyRecoveryAction(filters, action);
+    if (next === filters) return;
+    searchWithFilters(next);
   };
 
   const handleSpinRequest = () => {
@@ -327,7 +337,10 @@ export function HomeApp() {
 
       {location.type !== "none" && (
         <>
-          {hasSearched && (
+          {hasSearched &&
+            (placesState.status === "loading" ||
+              (placesState.status === "ready" && pool.length > 0) ||
+              (placesState.status === "error" && placesState.message)) && (
             <p className="text-sm text-ink-muted">
               {placesState.status === "loading" && (
                 <span className="text-mint">
@@ -340,12 +353,8 @@ export function HomeApp() {
                   {placesState.source === "cache" ? " (cached)" : ""}
                 </span>
               )}
-              {placesState.status !== "loading" && pool.length === 0 && (
-                <span className="text-coral-soft">
-                  {walkHint ??
-                    placesState.message ??
-                    "No spots in range for these filters."}
-                </span>
+              {placesState.status === "error" && placesState.message && (
+                <span className="text-coral-soft">{placesState.message}</span>
               )}
             </p>
           )}
@@ -362,58 +371,53 @@ export function HomeApp() {
 
           {hasSearched && (
             <section className="space-y-4">
-              <div>
-                <h2 className="font-display text-xl font-semibold">Spin it</h2>
-                <p className="mt-1 text-sm text-ink-muted">
-                  Full names on a vertical reel — open any winner in Google Maps.
-                </p>
-              </div>
-
               {placesState.status === "loading" ? (
-                <div className="rounded-2xl border border-border bg-bg-soft px-4 py-6 text-center">
-                  <p className="font-semibold text-mint">Fetching places…</p>
-                </div>
-              ) : pool.length === 0 ? (
+                <>
+                  <div>
+                    <h2 className="font-display text-xl font-semibold">Spin it</h2>
+                    <p className="mt-1 text-sm text-ink-muted">
+                      Full names on a vertical reel — open any winner in Google Maps.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-border bg-bg-soft px-4 py-6 text-center">
+                    <p className="font-semibold text-mint">Fetching places…</p>
+                  </div>
+                </>
+              ) : placesState.status === "error" ? (
                 <div className="rounded-2xl border border-coral/30 bg-coral/5 px-4 py-6 text-center">
                   <p className="font-semibold text-coral">
-                    No spots to spin with these filters.
-                  </p>
-                  <p className="mt-1 text-sm text-ink-muted">
-                    {walkHint ??
-                      placesState.message ??
-                      "Try a longer walk, a wider reach, or another price / cuisine."}
+                    {placesState.message ?? "Couldn’t load spots. Try again."}
                   </p>
                 </div>
-              ) : pool.length < MIN_WHEEL_CANDIDATES && pool[0] ? (
-                <div className="rounded-2xl border border-coral/30 bg-coral/5 px-4 py-6 text-center">
-                  <p className="font-semibold text-coral">
-                    Only one match nearby — not enough for a wheel.
-                  </p>
-                  <p className="mt-1 text-sm text-ink-muted">
-                    {walkHint ??
-                      "Take it, or widen reach / change price to spin."}
-                  </p>
-                  <p className="mt-4 font-display text-lg font-bold text-ink">
-                    {pool[0].name}
-                  </p>
-                  <p className="text-xs text-ink-muted">{pool[0].cuisine}</p>
-                  <button
-                    type="button"
-                    onClick={handleTakeOnlySpot}
-                    className="mt-4 rounded-2xl bg-lime px-8 py-3 font-display text-lg font-bold text-white shadow-sm transition hover:bg-lime-deep"
-                  >
-                    Take this spot
-                  </button>
-                </div>
-              ) : (
-                <SpinWheel
-                  candidates={candidates}
-                  winner={winner}
-                  spinning={spinning}
-                  targetIndex={targetIndex}
-                  onSpinRequest={handleSpinRequest}
-                  onSpinEnd={handleSpinEnd}
+              ) : poolRecovery?.variant === "empty" ? (
+                <EmptySpotsPanel
+                  ui={poolRecovery}
+                  onWidenReach={() => handleRecovery("widen-reach")}
+                  onAnyCuisine={() => handleRecovery("any-cuisine")}
                 />
+              ) : poolRecovery?.variant === "single" ? (
+                <SingleSpotPanel
+                  ui={poolRecovery}
+                  onTakeSpot={handleTakeOnlySpot}
+                  onWidenReach={() => handleRecovery("widen-reach")}
+                />
+              ) : (
+                <>
+                  <div>
+                    <h2 className="font-display text-xl font-semibold">Spin it</h2>
+                    <p className="mt-1 text-sm text-ink-muted">
+                      Full names on a vertical reel — open any winner in Google Maps.
+                    </p>
+                  </div>
+                  <SpinWheel
+                    candidates={candidates}
+                    winner={winner}
+                    spinning={spinning}
+                    targetIndex={targetIndex}
+                    onSpinRequest={handleSpinRequest}
+                    onSpinEnd={handleSpinEnd}
+                  />
+                </>
               )}
             </section>
           )}

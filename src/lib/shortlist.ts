@@ -1,4 +1,10 @@
-import type { FoodKind, PriceFilter, WalkRadius } from "./types";
+import type {
+  Filters,
+  FoodKind,
+  PriceFilter,
+  Reach,
+  WalkRadius,
+} from "./types";
 import { WALK_RADIUS_OPTIONS } from "./types";
 
 /** Wheel needs two names to feel like a spin rather than a coin flip. */
@@ -102,4 +108,128 @@ export function walkThinMessage(opts: {
     return `No spots within ${opts.walkLabel}. ${opts.fetched} found a bit further — try a longer walk.`;
   }
   return `Only ${opts.inRange} spot within ${opts.walkLabel}. ${opts.fetched} found a bit further — try a longer walk.`;
+}
+
+/** Design Partner locked copy for 0/1 in-range spots (no reel). */
+export const EMPTY_SPOTS_COPY =
+  "Not enough spots nearby. Widen reach or loosen cuisine.";
+export const SINGLE_SPOT_HEADING = "Only one spot in range";
+export const SINGLE_SPOT_BODY = "No spin needed — this is your makan.";
+export const TAKE_THIS_SPOT_LABEL = "Take this spot";
+export const WIDEN_REACH_LABEL = "Widen reach";
+export const ANY_CUISINE_LABEL = "Any cuisine";
+
+const WALK_RADIUS_WIDEN_ORDER: WalkRadius[] = WALK_RADIUS_OPTIONS.map(
+  (opt) => opt.id,
+);
+
+export type WiderReach = {
+  reach: Reach;
+  walkRadius: WalkRadius | null;
+};
+
+/** Next looser reach step: 500 m → 1 km → 1.5 km → short ride → anywhere. */
+export function nextWiderReach(filters: {
+  reach: Reach | null;
+  walkRadius: WalkRadius | null;
+}): WiderReach | null {
+  if (filters.reach === "walk") {
+    const current =
+      filters.walkRadius ??
+      WALK_RADIUS_WIDEN_ORDER[WALK_RADIUS_WIDEN_ORDER.length - 1];
+    const idx = current ? WALK_RADIUS_WIDEN_ORDER.indexOf(current) : -1;
+    const nextWalk = idx >= 0 ? WALK_RADIUS_WIDEN_ORDER[idx + 1] : undefined;
+    if (nextWalk) return { reach: "walk", walkRadius: nextWalk };
+    return { reach: "short", walkRadius: null };
+  }
+  if (filters.reach === "short") {
+    return { reach: "anywhere", walkRadius: null };
+  }
+  return null;
+}
+
+export function cuisineIsAny(cuisines: string[] | null | undefined): boolean {
+  if (!cuisines || cuisines.length === 0) return true;
+  return cuisines.includes("any");
+}
+
+/** Secondary empty-state chip — meals with a specific cuisine only. */
+export function shouldShowAnyCuisineChip(filters: {
+  kind: FoodKind | null;
+  cuisines: string[] | null;
+}): boolean {
+  if (filters.kind !== "meal") return false;
+  return !cuisineIsAny(filters.cuisines);
+}
+
+export type RecoveryAction = "widen-reach" | "any-cuisine";
+
+export function applyRecoveryAction(
+  filters: Filters,
+  action: RecoveryAction,
+): Filters {
+  if (action === "any-cuisine") {
+    if (cuisineIsAny(filters.cuisines) && filters.cuisines?.includes("any")) {
+      return filters;
+    }
+    return { ...filters, cuisines: ["any"] };
+  }
+  const next = nextWiderReach(filters);
+  if (!next) return filters;
+  return { ...filters, reach: next.reach, walkRadius: next.walkRadius };
+}
+
+export type RecoveryUi =
+  | {
+      variant: "empty";
+      copy: typeof EMPTY_SPOTS_COPY;
+      widenLabel: typeof WIDEN_REACH_LABEL;
+      anyCuisineLabel: typeof ANY_CUISINE_LABEL;
+      showWidenReach: true;
+      canWidenReach: boolean;
+      showAnyCuisine: boolean;
+    }
+  | {
+      variant: "single";
+      heading: typeof SINGLE_SPOT_HEADING;
+      body: typeof SINGLE_SPOT_BODY;
+      takeLabel: typeof TAKE_THIS_SPOT_LABEL;
+      widenLabel: typeof WIDEN_REACH_LABEL;
+      canWidenReach: boolean;
+    }
+  | { variant: "wheel" };
+
+/** UI contract for 0 / 1 / 2+ in-range spots after a search. */
+export function recoveryUi(opts: {
+  count: number;
+  filters: {
+    kind: FoodKind | null;
+    cuisines: string[] | null;
+    reach: Reach | null;
+    walkRadius: WalkRadius | null;
+  };
+}): RecoveryUi {
+  const canWidenReach = nextWiderReach(opts.filters) !== null;
+  if (opts.count <= 0) {
+    return {
+      variant: "empty",
+      copy: EMPTY_SPOTS_COPY,
+      widenLabel: WIDEN_REACH_LABEL,
+      anyCuisineLabel: ANY_CUISINE_LABEL,
+      showWidenReach: true,
+      canWidenReach,
+      showAnyCuisine: shouldShowAnyCuisineChip(opts.filters),
+    };
+  }
+  if (opts.count === 1) {
+    return {
+      variant: "single",
+      heading: SINGLE_SPOT_HEADING,
+      body: SINGLE_SPOT_BODY,
+      takeLabel: TAKE_THIS_SPOT_LABEL,
+      widenLabel: WIDEN_REACH_LABEL,
+      canWidenReach,
+    };
+  }
+  return { variant: "wheel" };
 }

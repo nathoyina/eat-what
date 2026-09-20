@@ -1,14 +1,25 @@
 import { describe, expect, it } from "vitest";
 import {
+  ANY_CUISINE_LABEL,
+  applyRecoveryAction,
+  EMPTY_SPOTS_COPY,
   emptyPlacesMessage,
   fallbackTextQuery,
   googlePriceLevels,
   MIN_WHEEL_CANDIDATES,
   needsThinFallback,
+  nextWiderReach,
+  recoveryUi,
   shouldSendPriceLevels,
+  shouldShowAnyCuisineChip,
+  SINGLE_SPOT_BODY,
+  SINGLE_SPOT_HEADING,
+  TAKE_THIS_SPOT_LABEL,
   walkRadiusLabel,
   walkThinMessage,
+  WIDEN_REACH_LABEL,
 } from "./shortlist";
+import type { Filters } from "./types";
 
 describe("needsThinFallback", () => {
   it("triggers below the wheel minimum, including a single leftover spot", () => {
@@ -118,5 +129,124 @@ describe("empty and walk-thin copy", () => {
     expect(
       walkThinMessage({ inRange: 5, fetched: 12, walkLabel: "500 m" }),
     ).toBeNull();
+  });
+});
+
+const mealFilters: Filters = {
+  kind: "meal",
+  cuisines: ["Chinese"],
+  price: "1",
+  reach: "walk",
+  walkRadius: "500",
+};
+
+describe("empty / single-spot recovery UX", () => {
+  it("locks Design Partner copy for 0 and 1 in-range spots", () => {
+    expect(EMPTY_SPOTS_COPY).toBe(
+      "Not enough spots nearby. Widen reach or loosen cuisine.",
+    );
+    expect(SINGLE_SPOT_HEADING).toBe("Only one spot in range");
+    expect(SINGLE_SPOT_BODY).toBe("No spin needed — this is your makan.");
+    expect(TAKE_THIS_SPOT_LABEL).toBe("Take this spot");
+    expect(WIDEN_REACH_LABEL).toBe("Widen reach");
+    expect(ANY_CUISINE_LABEL).toBe("Any cuisine");
+  });
+
+  it("uses one shared empty line and chips when count is 0", () => {
+    const ui = recoveryUi({ count: 0, filters: mealFilters });
+    expect(ui.variant).toBe("empty");
+    if (ui.variant !== "empty") return;
+    expect(ui.copy).toBe(EMPTY_SPOTS_COPY);
+    expect(ui.showWidenReach).toBe(true);
+    expect(ui.canWidenReach).toBe(true);
+    expect(ui.showAnyCuisine).toBe(true);
+    expect(ui.widenLabel).toBe("Widen reach");
+    expect(ui.anyCuisineLabel).toBe("Any cuisine");
+  });
+
+  it("hides Any cuisine when cuisine is already Any, including snacks/drinks", () => {
+    expect(
+      shouldShowAnyCuisineChip({ kind: "meal", cuisines: ["any"] }),
+    ).toBe(false);
+    expect(shouldShowAnyCuisineChip({ kind: "meal", cuisines: null })).toBe(
+      false,
+    );
+    expect(
+      shouldShowAnyCuisineChip({ kind: "drinks", cuisines: null }),
+    ).toBe(false);
+    expect(
+      shouldShowAnyCuisineChip({ kind: "snack", cuisines: ["Dessert"] }),
+    ).toBe(false);
+
+    const ui = recoveryUi({
+      count: 0,
+      filters: { ...mealFilters, cuisines: ["any"] },
+    });
+    expect(ui.variant === "empty" && ui.showAnyCuisine).toBe(false);
+  });
+
+  it("upgrades the single leftover spot to locked heading, body, and CTAs", () => {
+    const ui = recoveryUi({ count: 1, filters: mealFilters });
+    expect(ui).toEqual({
+      variant: "single",
+      heading: "Only one spot in range",
+      body: "No spin needed — this is your makan.",
+      takeLabel: "Take this spot",
+      widenLabel: "Widen reach",
+      canWidenReach: true,
+    });
+  });
+
+  it("keeps a normal wheel once there are two spots", () => {
+    expect(recoveryUi({ count: 2, filters: mealFilters }).variant).toBe(
+      "wheel",
+    );
+  });
+
+  it("widens reach 500 m → 1 km → 1.5 km → short ride → anywhere", () => {
+    expect(nextWiderReach({ reach: "walk", walkRadius: "500" })).toEqual({
+      reach: "walk",
+      walkRadius: "1000",
+    });
+    expect(nextWiderReach({ reach: "walk", walkRadius: "1000" })).toEqual({
+      reach: "walk",
+      walkRadius: "1500",
+    });
+    expect(nextWiderReach({ reach: "walk", walkRadius: "1500" })).toEqual({
+      reach: "short",
+      walkRadius: null,
+    });
+    expect(nextWiderReach({ reach: "short", walkRadius: null })).toEqual({
+      reach: "anywhere",
+      walkRadius: null,
+    });
+    expect(nextWiderReach({ reach: "anywhere", walkRadius: null })).toBeNull();
+  });
+
+  it("applies Widen reach and Any cuisine without touching other filters", () => {
+    const widened = applyRecoveryAction(mealFilters, "widen-reach");
+    expect(widened).toEqual({
+      ...mealFilters,
+      reach: "walk",
+      walkRadius: "1000",
+    });
+
+    const anyCuisine = applyRecoveryAction(mealFilters, "any-cuisine");
+    expect(anyCuisine).toEqual({ ...mealFilters, cuisines: ["any"] });
+
+    const maxed: Filters = {
+      ...mealFilters,
+      reach: "anywhere",
+      walkRadius: null,
+      cuisines: ["any"],
+    };
+    expect(applyRecoveryAction(maxed, "widen-reach")).toBe(maxed);
+    expect(applyRecoveryAction(maxed, "any-cuisine")).toBe(maxed);
+    const emptyMax = recoveryUi({ count: 0, filters: maxed });
+    expect(emptyMax.variant).toBe("empty");
+    if (emptyMax.variant === "empty") {
+      expect(emptyMax.canWidenReach).toBe(false);
+      expect(emptyMax.showAnyCuisine).toBe(false);
+    }
   });
 });
