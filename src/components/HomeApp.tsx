@@ -6,7 +6,7 @@ import { ResultCard } from "@/components/ResultCard";
 import { EmptySpotsPanel, SingleSpotPanel } from "@/components/SpotCountRecovery";
 import { SpinWheel } from "@/components/SpinWheel";
 import { useSavedIdSet } from "@/lib/hooks";
-import { areas, filterRestaurants, pickWheelCandidates } from "@/lib/restaurants";
+import { areas, locationChipLabel, filterRestaurants, pickWheelCandidates } from "@/lib/restaurants";
 import {
   originFromLocation,
   walkLabelFromOrigin,
@@ -42,6 +42,7 @@ export function HomeApp() {
   const [spinning, setSpinning] = useState(false);
   const [targetIndex, setTargetIndex] = useState<number | null>(null);
   const [winner, setWinner] = useState<Restaurant | null>(null);
+  const [editingLocation, setEditingLocation] = useState(false);
   const savedIds = useSavedIdSet();
 
   const placesState = usePlaces(searchRequest);
@@ -83,6 +84,7 @@ export function HomeApp() {
     setLocation(loc);
     if (loc.type !== "none") {
       setFilters((current) => withActivationDefaults(current));
+      setEditingLocation(false);
     }
     // Defaults only — do not search, spin, or fetch Places here.
     clearResults();
@@ -330,10 +332,13 @@ export function HomeApp() {
 
   const hasSearched = searchRequest !== null;
   const canSearch = location.type !== "none";
+  const showLocationPicker = location.type === "none" || editingLocation;
 
   return (
     <div className="mx-auto max-w-3xl space-y-10 px-4 py-8 pb-24">
-      <LocationPicker location={location} onChange={handleLocationChange} />
+      {showLocationPicker && (
+        <LocationPicker location={location} onChange={handleLocationChange} />
+      )}
 
       {location.type !== "none" && (
         <>
@@ -343,18 +348,16 @@ export function HomeApp() {
               (placesState.status === "error" && placesState.message)) && (
             <p className="text-sm text-ink-muted">
               {placesState.status === "loading" && (
-                <span className="text-mint">
-                  Loading real places from Google Maps…
-                </span>
+                <span>Loading real places from Google Maps…</span>
               )}
               {placesState.status === "ready" && pool.length > 0 && (
-                <span className="text-mint">
+                <span>
                   {pool.length} Google Maps place{pool.length === 1 ? "" : "s"}
                   {placesState.source === "cache" ? " (cached)" : ""}
                 </span>
               )}
               {placesState.status === "error" && placesState.message && (
-                <span className="text-coral-soft">{placesState.message}</span>
+                <span>{placesState.message}</span>
               )}
             </p>
           )}
@@ -362,11 +365,11 @@ export function HomeApp() {
           <FilterBar
             filters={filters}
             onChange={handleFiltersChange}
-            candidateCount={pool.length}
             loading={placesState.status === "loading"}
             canSearch={canSearch}
             onSearch={handleFindSpots}
-            hasSearched={hasSearched}
+            areaLabel={locationChipLabel(location)}
+            onChangeArea={() => setEditingLocation((open) => !open)}
           />
 
           {hasSearched && (
@@ -379,13 +382,13 @@ export function HomeApp() {
                       Full names on a vertical reel — open any winner in Google Maps.
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-border bg-bg-soft px-4 py-6 text-center">
-                    <p className="font-semibold text-mint">Fetching places…</p>
+                  <div className="rounded-2xl border border-border bg-white px-4 py-6 text-center">
+                    <p className="font-semibold text-ink-muted">Fetching places…</p>
                   </div>
                 </>
               ) : placesState.status === "error" ? (
-                <div className="rounded-2xl border border-coral/30 bg-coral/5 px-4 py-6 text-center">
-                  <p className="font-semibold text-coral">
+                <div className="rounded-2xl border border-border bg-white px-4 py-6 text-center">
+                  <p className="font-semibold text-ink">
                     {placesState.message ?? "Couldn’t load spots. Try again."}
                   </p>
                 </div>

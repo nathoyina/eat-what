@@ -7,6 +7,11 @@ import {
 } from "@/lib/result-card";
 import { placePhotoSrc } from "@/lib/place-photo";
 import { googleMapsUrl } from "@/lib/restaurants";
+import {
+  quietPrimaryCta,
+  quietSecondaryCta,
+  quietTertiaryCta,
+} from "@/lib/quiet-ui";
 import { reelPriceSymbols, type Restaurant } from "@/lib/types";
 import Image from "next/image";
 import { useMemo, useState } from "react";
@@ -53,6 +58,24 @@ function ShareIcon() {
       <circle cx="18" cy="19" r="3" />
       <path d="M8.6 13.5 15.4 17.5" />
       <path d="M15.4 6.5 8.6 10.5" />
+    </svg>
+  );
+}
+
+function MapsIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      aria-hidden
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
+      <circle cx="12" cy="10" r="2.2" />
     </svg>
   );
 }
@@ -177,36 +200,34 @@ export function ResultCard({
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-3 pt-1 sm:flex-row">
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={saved}
-          className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border-2 border-ink bg-white px-5 py-3.5 text-base font-bold text-ink transition hover:bg-bg-soft disabled:opacity-60"
-        >
-          <BookmarkIcon filled={saved} />
-          {saved ? "Saved" : "Save"}
-        </button>
-        <button
-          type="button"
-          onClick={handleShare}
-          className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-lime-quiet px-5 py-3.5 text-base font-bold text-ink transition hover:brightness-95"
-        >
-          <ShareIcon />
-          Share
-        </button>
-      </div>
-
-      <p className="text-center text-sm text-ink-muted">
+      <div className="flex flex-col gap-3 pt-1">
         <a
           href={maps}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-medium underline-offset-2 hover:text-ink hover:underline"
+          className={quietPrimaryCta}
         >
+          <MapsIcon />
           Open in Maps
         </a>
-      </p>
+        <button
+          type="button"
+          onClick={handleShare}
+          className={quietSecondaryCta}
+        >
+          <ShareIcon />
+          Share
+        </button>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={saved}
+          className={quietTertiaryCta}
+        >
+          <BookmarkIcon filled={saved} />
+          {saved ? "Saved" : "Save"}
+        </button>
+      </div>
       {shareStatus ? (
         <p className="text-center text-xs text-ink-muted" role="status" aria-live="polite">
           {shareStatus}

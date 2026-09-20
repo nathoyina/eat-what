@@ -17,6 +17,13 @@ export function areaName(areaId: string): string {
   return areas.find((a) => a.id === areaId)?.name ?? areaId;
 }
 
+/** Persistent filter-flow chip: neighbourhood name or “Near you”. */
+export function locationChipLabel(location: LocationMode): string | null {
+  if (location.type === "area") return areaName(location.areaId);
+  if (location.type === "geo") return "Near you";
+  return null;
+}
+
 export function allCuisines(catalog: Restaurant[] = restaurants): string[] {
   return [...new Set(catalog.map((r) => r.cuisine))].sort();
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterRestaurants, pickWheelCandidates } from "./restaurants";
+import { filterRestaurants, locationChipLabel, pickWheelCandidates } from "./restaurants";
 import { MIN_WHEEL_CANDIDATES } from "./shortlist";
 import type { CompleteFilters, Restaurant } from "./types";
 
@@ -69,5 +69,17 @@ describe("pickWheelCandidates", () => {
 
   it("does not invent extra names when the pool is a single place", () => {
     expect(pickWheelCandidates([spot("only", 1.3, 103.8)], 10)).toHaveLength(1);
+  });
+});
+
+describe("locationChipLabel", () => {
+  it("keeps a neighbourhood or Near you chip, and none before a pick", () => {
+    expect(locationChipLabel({ type: "none" })).toBeNull();
+    expect(locationChipLabel({ type: "area", areaId: "tiong-bahru" })).toBe(
+      "Tiong Bahru",
+    );
+    expect(locationChipLabel({ type: "geo", lat: 1.3, lng: 103.8 })).toBe(
+      "Near you",
+    );
   });
 });

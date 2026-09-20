@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  quietChipIdle,
+  quietChipSelected,
+  quietPrimaryCta,
+} from "@/lib/quiet-ui";
 import type { RecoveryUi } from "@/lib/shortlist";
 
 type EmptyProps = {
@@ -16,17 +21,14 @@ type SingleProps = {
 
 export function EmptySpotsPanel({ ui, onWidenReach, onAnyCuisine }: EmptyProps) {
   return (
-    <section
-      className="rounded-2xl border border-border bg-bg-soft px-4 py-6 text-center"
-      aria-live="polite"
-    >
+    <section className="bg-white py-2" aria-live="polite">
       <p className="text-sm font-medium text-ink sm:text-base">{ui.copy}</p>
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={onWidenReach}
           disabled={!ui.canWidenReach}
-          className="rounded-full bg-lime px-4 py-2 text-sm font-bold text-white transition enabled:hover:bg-lime-deep disabled:cursor-not-allowed disabled:opacity-40"
+          className={`${quietChipSelected} disabled:cursor-not-allowed disabled:opacity-40`}
         >
           {ui.widenLabel}
         </button>
@@ -34,7 +36,7 @@ export function EmptySpotsPanel({ ui, onWidenReach, onAnyCuisine }: EmptyProps) 
           <button
             type="button"
             onClick={onAnyCuisine}
-            className="rounded-full border border-border bg-bg-elevated px-4 py-2 text-sm font-bold text-ink transition hover:border-mint/40 hover:bg-mint/5"
+            className={quietChipIdle}
           >
             {ui.anyCuisineLabel}
           </button>
@@ -46,22 +48,18 @@ export function EmptySpotsPanel({ ui, onWidenReach, onAnyCuisine }: EmptyProps) 
 
 export function SingleSpotPanel({ ui, onTakeSpot, onWidenReach }: SingleProps) {
   return (
-    <section className="rounded-2xl border border-border bg-bg-soft px-4 py-6 text-center">
-      <h2 className="font-display text-xl font-semibold text-ink">{ui.heading}</h2>
+    <section className="bg-white py-2">
+      <h2 className="text-lg font-semibold text-ink">{ui.heading}</h2>
       <p className="mt-1 text-sm text-ink-muted">{ui.body}</p>
-      <button
-        type="button"
-        onClick={onTakeSpot}
-        className="mt-5 rounded-2xl bg-lime px-8 py-3 font-display text-lg font-bold text-white shadow-sm transition hover:bg-lime-deep"
-      >
+      <button type="button" onClick={onTakeSpot} className={`${quietPrimaryCta} mt-5`}>
         {ui.takeLabel}
       </button>
-      <div className="mt-3">
+      <div className="mt-4">
         <button
           type="button"
           onClick={onWidenReach}
           disabled={!ui.canWidenReach}
-          className="text-sm font-semibold text-ink-muted underline-offset-2 transition enabled:hover:text-ink enabled:hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+          className={`${quietChipIdle} disabled:cursor-not-allowed disabled:opacity-40`}
         >
           {ui.widenLabel}
         </button>
