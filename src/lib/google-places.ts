@@ -23,6 +23,12 @@ type Money = {
   nanos?: number;
 };
 
+type PlaceOpeningHours = {
+  openNow?: boolean;
+  periods?: unknown[];
+  weekdayDescriptions?: string[];
+};
+
 type PlacesNearbyResponse = {
   places?: Array<{
     id?: string;
@@ -35,20 +41,29 @@ type PlacesNearbyResponse = {
     googleMapsUri?: string;
     priceLevel?: string;
     priceRange?: { startPrice?: Money; endPrice?: Money };
+    businessStatus?: string;
+    regularOpeningHours?: PlaceOpeningHours;
+    currentOpeningHours?: PlaceOpeningHours;
   }>;
   error?: { message?: string; status?: string };
 };
 
 export type PlaceResult = NonNullable<PlacesNearbyResponse["places"]>[number];
 
-/** Non-eateries that slip into Nearby/Text (malls with food courts, etc.). */
+/** Non-eateries that slip into Nearby/Text (malls, parks, transit, lodging). */
 const EXCLUDED_PRIMARY_TYPES = new Set([
   "bus_stop",
+  "bus_station",
   "transit_stop",
   "transit_station",
+  "transit_depot",
   "subway_station",
   "train_station",
   "light_rail_station",
+  "ferry_terminal",
+  "airport",
+  "taxi_stand",
+  "park_and_ride",
   "grocery_store",
   "manufacturer",
   "supermarket",
@@ -67,6 +82,29 @@ const EXCLUDED_PRIMARY_TYPES = new Set([
   "pharmacy",
   "hotel",
   "lodging",
+  "motel",
+  "hostel",
+  "guest_house",
+  "resort_hotel",
+  "bed_and_breakfast",
+  "campground",
+  "park",
+  "national_park",
+  "state_park",
+  "dog_park",
+  "cycling_park",
+  "amusement_park",
+  "picnic_ground",
+  "playground",
+  "hiking_area",
+  "tourist_attraction",
+  "historical_landmark",
+  "observation_deck",
+  "visitor_center",
+  "parking",
+  "parking_lot",
+  "parking_garage",
+  "rest_stop",
 ]);
 
 const SNACK_PRIMARY_TYPES = new Set([
@@ -116,7 +154,7 @@ const DRINK_TYPES_ANY = new Set([
   "tea_store",
 ]);
 
-/** Malls / retail — never treat as makan. */
+/** Malls / parks / transit / lodging — never treat as makan at Nearby time. */
 const EXCLUDED_NON_EATERY_NEARBY = [
   "shopping_mall",
   "department_store",
@@ -127,6 +165,21 @@ const EXCLUDED_NON_EATERY_NEARBY = [
   "hotel",
   "lodging",
   "liquor_store",
+  "park",
+  "national_park",
+  "parking",
+  "tourist_attraction",
+  "observation_deck",
+  "picnic_ground",
+  "playground",
+  "hiking_area",
+  "bus_station",
+  "bus_stop",
+  "transit_station",
+  "ferry_terminal",
+  "campground",
+  "motel",
+  "hostel",
 ] as const;
 
 const SNACK_NEARBY_TYPES = [
@@ -199,12 +252,136 @@ const SNACK_NAME_PATTERN =
 const DRINK_CHAIN_NAME_PATTERN =
   /\b(playmade|play\s*made|丸作|liho|li\s*ho|gong\s*cha|gongcha|koi\s*th[eé]|koi\b|each\s*a\s*cup|sharetea|share\s*tea|the\s*alley|tiger\s*sugar|chicha|hey\s*tea|heytea|chagee|beutea|mr\.?\s*coconut|boost\s*juice|r\s*&\s*b\s*tea|xing\s*fu\s*tang|yi\s*fang|milksha|chatime|tealive|happy\s*lemon|presotea|come\s*buy|comebuy|one\s*zo|onezo|chun\s*yang|春陽|春阳|daboba|tea\s*hut|teahut|craft\s*tea|i.?teashop|trtea|tenren|五十嵐|50\s*lan|coco\s*fresh|coco\b|peach\s*garden|hong\s*tang|black\s*ball|moo\s*tea|teapot\b|tea\s*plus|tea\s*culture|tea\s*work|tea\s*story|kft\b|kung\s*fu\s*tea)\b/i;
 
+/** Parks / parking / transit POIs Google Text Search sometimes ranks as food. */
+const NON_EATERY_NAME_PATTERN =
+  /\b(park(\s+side)?|national\s+park|theme\s+park|dog\s+park|playground|picnic\s+(ground|area)|viewpoint|lookout(\s+point)?|observation\s+(deck|tower|point)|car\s*park|carpark|parking(\s+(lot|garage|area|bay))?|bus(\s+interchange|\s+stop|\s+terminal)|mrt(\s+station)?|lrt(\s+station)?|train\s+station|ferry\s+terminal|taxi\s+stand)\b/i;
+
+/** Food words that keep a park-side hawker / cafe from the name drop. */
+const FOOD_VENUE_NAME_PATTERN =
+  /\b(restaurant|hawker|eatery|canteen|stall|kopitiam|cafe|café|bistro|diner|kitchen|bakery|bar|pub)\b/i;
+
+const CLOSED_BUSINESS_STATUSES = new Set([
+  "CLOSED_TEMPORARILY",
+  "CLOSED_PERMANENTLY",
+  "BUSINESS_STATUS_UNSPECIFIED",
+  "FUTURE_OPENING",
+]);
+
+const EXCLUDED_PRIMARY_DISPLAY = new Set([
+  "park",
+  "parking",
+  "parking lot",
+  "parking garage",
+  "tourist attraction",
+  "observation deck",
+  "picnic ground",
+  "playground",
+  "hotel",
+  "lodging",
+  "bus stop",
+  "bus station",
+  "transit station",
+  "train station",
+  "subway station",
+  "ferry terminal",
+]);
+
 function nameLooksLikeSitDownRestaurant(primary: string): boolean {
   return Boolean(
     primary &&
       primary.endsWith("_restaurant") &&
       primary !== "dessert_restaurant",
   );
+}
+
+function isNamedFoodCourt(name: string): boolean {
+  return /\bfood\s*(court|centre|center)\b/i.test(name);
+}
+
+/** Park POIs — food-court / cafe names at a park still count as makan. */
+const PARK_LIKE_PRIMARY_TYPES = new Set([
+  "park",
+  "national_park",
+  "state_park",
+  "dog_park",
+  "cycling_park",
+  "amusement_park",
+  "picnic_ground",
+  "playground",
+  "hiking_area",
+  "tourist_attraction",
+  "historical_landmark",
+  "observation_deck",
+  "visitor_center",
+]);
+
+function hasFoodVenueName(name: string): boolean {
+  return (
+    isNamedFoodCourt(name) ||
+    DRINK_CHAIN_NAME_PATTERN.test(name) ||
+    DRINK_NAME_PATTERN.test(name) ||
+    SNACK_NAME_PATTERN.test(name) ||
+    KOPITIAM_NAME_PATTERN.test(name) ||
+    CAFE_NAME_PATTERN.test(name) ||
+    FOOD_VENUE_NAME_PATTERN.test(name)
+  );
+}
+
+function hasFoodTypeHint(p: PlaceResult): boolean {
+  const tokens = [p.primaryType, ...(p.types ?? [])].filter(
+    (t): t is string => Boolean(t),
+  );
+  return tokens.some(
+    (t) =>
+      t === "food" ||
+      t === "restaurant" ||
+      t.endsWith("_restaurant") ||
+      SNACK_PRIMARY_TYPES.has(t) ||
+      DRINK_PRIMARY_TYPES.has(t) ||
+      t === "coffee_shop" ||
+      t === "food_court" ||
+      t === "meal_takeaway" ||
+      t === "meal_delivery" ||
+      t === "fast_food_restaurant" ||
+      t === "salad_shop" ||
+      t === "sandwich_shop" ||
+      t === "deli",
+  );
+}
+
+/** Closed / never-open — keep OPERATIONAL; missing status is unknown, not closed. */
+function isClosedBusiness(p: PlaceResult): boolean {
+  const status = p.businessStatus;
+  if (status == null || status === "") return false;
+  if (status === "OPERATIONAL") return false;
+  return CLOSED_BUSINESS_STATUSES.has(status);
+}
+
+/**
+ * Empty `periods` (present, not absent) means never open — e.g. shut for
+ * renovations. Do not use `openNow`; a closed-for-lunch restaurant is still
+ * a real spot for the wheel.
+ */
+function openingHoursNeverOpen(hours?: PlaceOpeningHours): boolean {
+  if (!hours) return false;
+  if (Array.isArray(hours.periods) && hours.periods.length === 0) return true;
+  const days = hours.weekdayDescriptions;
+  if (
+    Array.isArray(days) &&
+    days.length > 0 &&
+    days.every((d) => /:\s*closed\b/i.test(d) || /^\s*closed\b/i.test(d))
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function isNeverOpenPlace(p: PlaceResult): boolean {
+  if (openingHoursNeverOpen(p.regularOpeningHours)) return true;
+  if (!p.regularOpeningHours && openingHoursNeverOpen(p.currentOpeningHours)) {
+    return true;
+  }
+  return false;
 }
 
 export function classifyFoodKind(p: PlaceResult): FoodKind {
@@ -239,10 +416,6 @@ export function classifyFoodKind(p: PlaceResult): FoodKind {
   return "meal";
 }
 
-function isNamedFoodCourt(name: string): boolean {
-  return /\bfood\s*(court|centre|center)\b/i.test(name);
-}
-
 /**
  * Mall *buildings* aren't makan. Tenants often inherit `shopping_mall` on
  * types[] (Beutea @ Mapletree, Gong Cha Hillion) — dropping those emptied
@@ -267,10 +440,28 @@ export function isMallPlace(p: PlaceResult): boolean {
 }
 
 export function isNonEateryPlace(p: PlaceResult): boolean {
-  const primary = p.primaryType ?? "";
+  if (isClosedBusiness(p)) return true;
+  if (isNeverOpenPlace(p)) return true;
 
-  if (primary && EXCLUDED_PRIMARY_TYPES.has(primary)) return true;
+  const primary = p.primaryType ?? "";
+  const types = p.types ?? [];
+  const name = p.displayName?.text ?? "";
+  const display = (p.primaryTypeDisplayName?.text ?? "").trim().toLowerCase();
+  const foodName = hasFoodVenueName(name);
+
+  if (primary && EXCLUDED_PRIMARY_TYPES.has(primary)) {
+    if (foodName && PARK_LIKE_PRIMARY_TYPES.has(primary)) return false;
+    return true;
+  }
+  if (display && EXCLUDED_PRIMARY_DISPLAY.has(display) && !foodName) {
+    return true;
+  }
   if (isMallPlace(p)) return true;
+  if (NON_EATERY_NAME_PATTERN.test(name) && !foodName) return true;
+
+  if (foodName || hasFoodTypeHint(p)) return false;
+
+  if (types.some((t) => EXCLUDED_PRIMARY_TYPES.has(t))) return true;
 
   return false;
 }
@@ -353,10 +544,10 @@ function isSaladPlace(p: PlaceResult): boolean {
 }
 
 /**
- * Enterprise SKU fields — priceLevel / priceRange need Enterprise
- * (free cap ~1,000/month vs Pro ~5,000).
+ * Enterprise SKU fields — priceLevel / priceRange / regularOpeningHours.
+ * Nearby and Text Search share this mask via `callPlacesApi` (no extra calls).
  */
-const ENTERPRISE_FIELD_MASK = [
+export const PLACES_SEARCH_FIELD_MASK = [
   "places.id",
   "places.displayName",
   "places.formattedAddress",
@@ -367,6 +558,9 @@ const ENTERPRISE_FIELD_MASK = [
   "places.googleMapsUri",
   "places.priceLevel",
   "places.priceRange",
+  "places.businessStatus",
+  "places.regularOpeningHours",
+  "places.currentOpeningHours",
 ].join(",");
 
 const TYPE_CUISINE: Record<string, string> = {
@@ -659,7 +853,7 @@ async function callPlacesApi(
       headers: {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": apiKey,
-        "X-Goog-FieldMask": ENTERPRISE_FIELD_MASK,
+        "X-Goog-FieldMask": PLACES_SEARCH_FIELD_MASK,
       },
       body: JSON.stringify(body),
     },
