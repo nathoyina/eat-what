@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  ACTIVATION_DEFAULT_FILTERS,
   distanceInReach,
   filtersComplete,
   formatPriceLabel,
   matchesPriceFilter,
   reelPriceSymbols,
   toCompleteFilters,
+  withActivationDefaults,
   type Filters,
 } from "./types";
 
@@ -117,5 +119,84 @@ describe("filtersComplete", () => {
     });
     expect(complete?.cuisines).toEqual(["any"]);
     expect(complete?.kind).toBe("drinks");
+  });
+});
+
+describe("activation defaults (experiment A)", () => {
+  const empty: Filters = {
+    kind: null,
+    cuisines: null,
+    price: null,
+    reach: null,
+    walkRadius: null,
+  };
+
+  it("pre-fills Meal · Walk · 500 m · Any price · Any cuisine after a location pick", () => {
+    expect(ACTIVATION_DEFAULT_FILTERS).toEqual({
+      kind: "meal",
+      cuisines: ["any"],
+      price: "any",
+      reach: "walk",
+      walkRadius: "500",
+    });
+    const filled = withActivationDefaults(empty);
+    expect(filled).toEqual(ACTIVATION_DEFAULT_FILTERS);
+    expect(filtersComplete(filled)).toBe(true);
+    expect(toCompleteFilters(filled)).toEqual({
+      kind: "meal",
+      cuisines: ["any"],
+      price: "any",
+      reach: "walk",
+      walkRadius: "500",
+    });
+  });
+
+  it("defaults Walk to 500 m, not Short ride", () => {
+    expect(withActivationDefaults(empty)).toEqual({
+      kind: "meal",
+      cuisines: ["any"],
+      price: "any",
+      reach: "walk",
+      walkRadius: "500",
+    });
+    expect(
+      withActivationDefaults({ ...empty, reach: "walk", walkRadius: null }),
+    ).toEqual(ACTIVATION_DEFAULT_FILTERS);
+  });
+
+  it("clears walkRadius when the user already chose short ride or anywhere", () => {
+    expect(
+      withActivationDefaults({ ...empty, reach: "short", walkRadius: "500" }),
+    ).toEqual({
+      kind: "meal",
+      cuisines: ["any"],
+      price: "any",
+      reach: "short",
+      walkRadius: null,
+    });
+  });
+
+  it("does not overwrite filters the user already chose", () => {
+    const custom: Filters = {
+      kind: "drinks",
+      cuisines: null,
+      price: "2",
+      reach: "walk",
+      walkRadius: "1000",
+    };
+    expect(withActivationDefaults(custom)).toEqual(custom);
+    expect(
+      withActivationDefaults({
+        ...empty,
+        kind: "meal",
+        cuisines: ["Japanese"],
+      }),
+    ).toEqual({
+      kind: "meal",
+      cuisines: ["Japanese"],
+      price: "any",
+      reach: "walk",
+      walkRadius: "500",
+    });
   });
 });

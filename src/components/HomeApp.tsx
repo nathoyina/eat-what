@@ -20,7 +20,7 @@ import {
 } from "@/lib/shortlist";
 import { saveSpot } from "@/lib/storage";
 import type { Filters, LocationMode, Restaurant } from "@/lib/types";
-import { toCompleteFilters } from "@/lib/types";
+import { toCompleteFilters, withActivationDefaults } from "@/lib/types";
 import { usePlaces, type SearchRequest } from "@/lib/usePlaces";
 import { useCallback, useMemo, useState } from "react";
 
@@ -83,6 +83,10 @@ export function HomeApp() {
 
   const handleLocationChange = (loc: LocationMode) => {
     setLocation(loc);
+    if (loc.type !== "none") {
+      setFilters((current) => withActivationDefaults(current));
+    }
+    // Defaults only — do not search, spin, or fetch Places here.
     clearResults();
   };
 

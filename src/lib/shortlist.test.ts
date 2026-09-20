@@ -19,7 +19,7 @@ import {
   walkThinMessage,
   WIDEN_REACH_LABEL,
 } from "./shortlist";
-import type { Filters } from "./types";
+import { ACTIVATION_DEFAULT_FILTERS, type Filters } from "./types";
 
 describe("needsThinFallback", () => {
   it("triggers below the wheel minimum, including a single leftover spot", () => {
@@ -248,5 +248,24 @@ describe("empty / single-spot recovery UX", () => {
       expect(emptyMax.canWidenReach).toBe(false);
       expect(emptyMax.showAnyCuisine).toBe(false);
     }
+  });
+
+  it("hides Any cuisine for activation defaults and still offers Widen reach", () => {
+    expect(
+      shouldShowAnyCuisineChip(ACTIVATION_DEFAULT_FILTERS),
+    ).toBe(false);
+    const ui = recoveryUi({
+      count: 0,
+      filters: ACTIVATION_DEFAULT_FILTERS,
+    });
+    expect(ui.variant).toBe("empty");
+    if (ui.variant !== "empty") return;
+    expect(ui.showAnyCuisine).toBe(false);
+    expect(ui.canWidenReach).toBe(true);
+    expect(applyRecoveryAction(ACTIVATION_DEFAULT_FILTERS, "widen-reach")).toEqual({
+      ...ACTIVATION_DEFAULT_FILTERS,
+      reach: "walk",
+      walkRadius: "1000",
+    });
   });
 });
