@@ -13,9 +13,9 @@ export function getSiteUrl(): string {
 }
 
 export const SITE_NAME = "Eat What";
-export const SITE_TAGLINE = "Random picker for meals, snacks and drinks in Singapore";
+export const SITE_TAGLINE = "What to eat, snack or drink in Singapore";
 export const SITE_DESCRIPTION =
-  "Can't decide what to eat or drink in Singapore? Pick a neighbourhood, then meal, snack or drinks, cuisine and budget. Spin a wheel of real Google Maps restaurants, cafes, hawker centres and bars. No signup.";
+  "Can't decide what to makan? Pick a Singapore area, filter meal/snack/drinks, then spin one real Google Maps spot — hawkers to cafes. Free, no signup.";
 
 export const GOOGLE_SITE_VERIFICATION = [
   "cW9XyoU8kb799fMqDP53r70TNpe6YWk0SDTsTaTvauA",
