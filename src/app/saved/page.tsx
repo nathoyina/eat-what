@@ -41,8 +41,13 @@ export default function SavedPage() {
                 <div>
                   <p className="font-display text-lg font-bold">{spot.name}</p>
                   <p className="mt-1 text-sm text-ink-muted">
-                    {formatPriceLabel(spot.priceLevel, spot.priceRangeText)} ·{" "}
-                    {spot.cuisine} · {spot.address}
+                    {[
+                      formatPriceLabel(spot.priceLevel, spot.priceRangeText),
+                      spot.cuisine,
+                      spot.address,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </p>
                 </div>
                 <button

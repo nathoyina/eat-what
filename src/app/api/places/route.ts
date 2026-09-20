@@ -2,6 +2,7 @@ import { areaName, areas } from "@/lib/restaurants";
 import {
   DRINKS_SEARCH_API_COST,
   fetchNearbyFoodPlaces,
+  fetchThinShortlistFallback,
   SALAD_SEARCH_API_COST,
 } from "@/lib/google-places";
 import { cuisineUsesTextSearch } from "@/lib/cuisine-types";
@@ -9,6 +10,10 @@ import {
   getQuotaStatus,
   tryConsumeQuota,
 } from "@/lib/places-quota";
+import {
+  emptyPlacesMessage,
+  needsThinFallback,
+} from "@/lib/shortlist";
 import {
   REACH_KM,
   matchesPriceFilter,
@@ -19,7 +24,11 @@ import {
 
 export const runtime = "nodejs";
 
-type CacheEntry = { places: Restaurant[]; expires: number };
+type CacheEntry = {
+  places: Restaurant[];
+  expires: number;
+  fallbackAttempted: boolean;
+};
 const cache = new Map<string, CacheEntry>();
 /** Long cache so repeat spins / reach tweaks hit disk/memory, not Google. */
 const TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
@@ -51,28 +60,46 @@ function apiCost(kind: FoodKind, cuisines: string[]): number {
   return 1;
 }
 
-function emptyPlacesMessage(
-  price: PriceFilter,
-  kind: FoodKind,
-  cuisines: string[],
-): string {
-  const priceHint =
-    price === "any"
-      ? ""
-      : price === "1"
-        ? "$ "
-        : price === "2"
-          ? "$$ "
-          : "$$$ ";
-  const kindLabel =
-    kind === "snack" ? "snack" : kind === "drinks" ? "drink" : "food";
-  return cuisines.length
-    ? `No ${priceHint}${cuisines.join(" / ")} spots found nearby. Try another price or wider reach.`
-    : `No ${priceHint || ""}${kindLabel} places found nearby. Try a wider reach or another price.`;
-}
-
 function filterByPrice(places: Restaurant[], price: PriceFilter): Restaurant[] {
   return places.filter((p) => matchesPriceFilter(p.priceLevel, price));
+}
+
+function mergePlaces(
+  current: Restaurant[],
+  extra: Restaurant[],
+): Restaurant[] {
+  const byId = new Map<string, Restaurant>();
+  for (const p of current) byId.set(p.id, p);
+  for (const p of extra) byId.set(p.id, p);
+  return [...byId.values()];
+}
+
+function jsonPlaces(
+  places: Restaurant[],
+  extra: {
+    source: string;
+    areaKey: string;
+    quota: ReturnType<typeof quotaPayload>;
+    price: PriceFilter;
+    kind: FoodKind;
+    cuisines: string[];
+  },
+) {
+  if (!places.length) {
+    return Response.json({
+      places: [],
+      source: extra.source,
+      area: extra.areaKey,
+      quota: extra.quota,
+      message: emptyPlacesMessage(extra.price, extra.kind, extra.cuisines),
+    });
+  }
+  return Response.json({
+    places,
+    source: extra.source,
+    area: extra.areaKey,
+    quota: extra.quota,
+  });
 }
 
 export async function GET(req: Request) {
@@ -130,31 +157,94 @@ export async function GET(req: Request) {
   // returns the same 20 spots for $ and Any.
   const cacheKey = `${areaKey}:${radiusMeters}:${kind}:${cuisines.sort().join("|") || "all"}`;
   const cached = cache.get(cacheKey);
-  const quota = await getQuotaStatus();
-
-  if (cached && cached.expires > Date.now()) {
-    const places = filterByPrice(cached.places, price);
-    if (!places.length) {
-      return Response.json({
-        places: [],
-        source: "cache",
-        area: areaKey,
-        quota: quotaPayload(quota),
-        message: emptyPlacesMessage(price, kind, cuisines),
-      });
-    }
-    return Response.json({
-      places,
-      source: "cache",
-      area: areaKey,
-      quota: quotaPayload(quota),
-    });
-  }
+  let quota = await getQuotaStatus();
 
   const apiKey =
     process.env.GOOGLE_PLACES_API_KEY ??
     process.env.GOOGLE_MAPS_API_KEY ??
     process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+  const fallbackOpts = {
+    apiKey: apiKey ?? "",
+    lat: center.lat,
+    lng: center.lng,
+    radiusMeters,
+    areaId: resolvedAreaId,
+    areaName: resolvedAreaName ?? areaName(resolvedAreaId),
+    cuisines,
+    priceFilter: price,
+    foodKind: kind,
+  };
+
+  async function maybeFallback(
+    catalog: Restaurant[],
+    alreadyAttempted: boolean,
+  ): Promise<{ places: Restaurant[]; catalog: Restaurant[]; attempted: boolean; source: string }> {
+    const priced = filterByPrice(catalog, price);
+    if (!needsThinFallback(priced.length) || alreadyAttempted) {
+      return {
+        places: priced,
+        catalog,
+        attempted: alreadyAttempted,
+        source: "cache",
+      };
+    }
+    if (!apiKey) {
+      return {
+        places: priced,
+        catalog,
+        attempted: true,
+        source: "none",
+      };
+    }
+    const extra = await tryConsumeQuota(1);
+    quota = extra;
+    if (!extra.allowed) {
+      return {
+        places: priced,
+        catalog,
+        attempted: true,
+        source: "quota",
+      };
+    }
+    try {
+      const more = await fetchThinShortlistFallback(fallbackOpts);
+      const merged = mergePlaces(catalog, more);
+      return {
+        places: filterByPrice(merged, price),
+        catalog: merged,
+        attempted: true,
+        source: "places",
+      };
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Google Places request failed";
+      console.error("[api/places] thin fallback", message);
+      return {
+        places: priced,
+        catalog,
+        attempted: true,
+        source: "error",
+      };
+    }
+  }
+
+  if (cached && cached.expires > Date.now()) {
+    const next = await maybeFallback(cached.places, cached.fallbackAttempted);
+    cache.set(cacheKey, {
+      places: next.catalog,
+      expires: cached.expires,
+      fallbackAttempted: next.attempted,
+    });
+    return jsonPlaces(next.places, {
+      source: next.source === "places" ? "places" : "cache",
+      areaKey,
+      quota: quotaPayload(quota),
+      price,
+      kind,
+      cuisines,
+    });
+  }
 
   if (!apiKey) {
     return Response.json({
@@ -168,6 +258,7 @@ export async function GET(req: Request) {
   }
 
   const consumed = await tryConsumeQuota(apiCost(kind, cuisines));
+  quota = consumed;
   if (!consumed.allowed) {
     return Response.json(
       {
@@ -175,7 +266,8 @@ export async function GET(req: Request) {
         source: "quota",
         area: areaKey,
         quota: quotaPayload(consumed),
-        message: `Monthly API cap reached (${consumed.used}/${consumed.cap} calls used). Resets on the 1st of next month. Cached searches still work.`,
+        message:
+          "New place lookups are paused for now. Try a search you already ran, or come back later.",
       },
       { status: 429 },
     );
@@ -193,26 +285,20 @@ export async function GET(req: Request) {
       foodKind: kind,
     });
 
-    if (catalog.length) {
-      cache.set(cacheKey, { places: catalog, expires: Date.now() + TTL_MS });
-    }
+    const next = await maybeFallback(catalog, false);
+    cache.set(cacheKey, {
+      places: next.catalog,
+      expires: Date.now() + TTL_MS,
+      fallbackAttempted: next.attempted,
+    });
 
-    const places = filterByPrice(catalog, price);
-    if (!places.length) {
-      return Response.json({
-        places: [],
-        source: "places",
-        area: areaKey,
-        quota: quotaPayload(consumed),
-        message: emptyPlacesMessage(price, kind, cuisines),
-      });
-    }
-
-    return Response.json({
-      places,
+    return jsonPlaces(next.places, {
       source: "places",
-      area: areaKey,
-      quota: quotaPayload(consumed),
+      areaKey,
+      quota: quotaPayload(quota),
+      price,
+      kind,
+      cuisines,
     });
   } catch (err) {
     const message =
@@ -223,7 +309,7 @@ export async function GET(req: Request) {
         places: [],
         source: "error",
         area: areaKey,
-        quota: quotaPayload(consumed),
+        quota: quotaPayload(quota),
         message,
       },
       { status: 502 },

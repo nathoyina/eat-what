@@ -11,10 +11,14 @@ import {
   filterRestaurants,
   pickWheelCandidates,
 } from "@/lib/restaurants";
+import {
+  MIN_WHEEL_CANDIDATES,
+  walkRadiusLabel,
+  walkThinMessage,
+} from "@/lib/shortlist";
 import { saveSpot } from "@/lib/storage";
 import type { Filters, LocationMode, Restaurant } from "@/lib/types";
 import { toCompleteFilters } from "@/lib/types";
-import { formatQuotaLabel } from "@/lib/quota-label";
 import { usePlaces, type SearchRequest } from "@/lib/usePlaces";
 import { useCallback, useMemo, useState } from "react";
 
@@ -57,10 +61,19 @@ export function HomeApp() {
   const poolKey = useMemo(() => pool.map((r) => r.id).join("|"), [pool]);
 
   const candidates = useMemo(() => {
-    if (pool.length < 2) return [];
+    if (pool.length < MIN_WHEEL_CANDIDATES) return [];
     return pickWheelCandidates(pool, 10);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [poolKey, reshuffle]);
+
+  const walkHint = useMemo(() => {
+    if (!searchRequest || searchRequest.filters.reach !== "walk") return null;
+    return walkThinMessage({
+      inRange: pool.length,
+      fetched: placesState.places.length,
+      walkLabel: walkRadiusLabel(searchRequest.filters.walkRadius),
+    });
+  }, [searchRequest, pool.length, placesState.places.length]);
 
   const clearResults = () => {
     setSearchRequest(null);
@@ -95,8 +108,17 @@ export function HomeApp() {
     setReshuffle((n) => n + 1);
   };
 
+  const handleTakeOnlySpot = () => {
+    if (pool.length !== 1 || spinning) return;
+    const only = pool[0];
+    setWinner(only);
+    setPun(pickPun(only.cuisine));
+    setTargetIndex(null);
+    setSpinning(false);
+  };
+
   const handleSpinRequest = () => {
-    if (candidates.length < 2 || spinning) return;
+    if (candidates.length < MIN_WHEEL_CANDIDATES || spinning) return;
     const idx = Math.floor(Math.random() * candidates.length);
     setWinner(null);
     setTargetIndex(idx);
@@ -312,17 +334,18 @@ export function HomeApp() {
                   Loading real places from Google Maps…
                 </span>
               )}
-              {placesState.status === "ready" && placesState.places.length > 0 && (
+              {placesState.status === "ready" && pool.length > 0 && (
                 <span className="text-mint">
-                  {placesState.places.length} Google Maps places
+                  {pool.length} Google Maps place{pool.length === 1 ? "" : "s"}
                   {placesState.source === "cache" ? " (cached)" : ""}
-                  {placesState.quota
-                    ? ` · ${formatQuotaLabel(placesState.quota)}`
-                    : ""}
                 </span>
               )}
-              {placesState.message && placesState.places.length === 0 && (
-                <span className="text-coral-soft">{placesState.message}</span>
+              {placesState.status !== "loading" && pool.length === 0 && (
+                <span className="text-coral-soft">
+                  {walkHint ??
+                    placesState.message ??
+                    "No spots in range for these filters."}
+                </span>
               )}
             </p>
           )}
@@ -350,18 +373,42 @@ export function HomeApp() {
                 <div className="rounded-2xl border border-border bg-bg-soft px-4 py-6 text-center">
                   <p className="font-semibold text-mint">Fetching places…</p>
                 </div>
-              ) : pool.length < 2 ? (
+              ) : pool.length === 0 ? (
                 <div className="rounded-2xl border border-coral/30 bg-coral/5 px-4 py-6 text-center">
                   <p className="font-semibold text-coral">
-                    Not enough spots for a proper spin.
+                    No spots to spin with these filters.
                   </p>
                   <p className="mt-1 text-sm text-ink-muted">
-                    Try wider reach or a different spot type / cuisine.
+                    {walkHint ??
+                      placesState.message ??
+                      "Try a longer walk, a wider reach, or another price / cuisine."}
                   </p>
+                </div>
+              ) : pool.length < MIN_WHEEL_CANDIDATES && pool[0] ? (
+                <div className="rounded-2xl border border-coral/30 bg-coral/5 px-4 py-6 text-center">
+                  <p className="font-semibold text-coral">
+                    Only one match nearby — not enough for a wheel.
+                  </p>
+                  <p className="mt-1 text-sm text-ink-muted">
+                    {walkHint ??
+                      "Take it, or widen reach / change price to spin."}
+                  </p>
+                  <p className="mt-4 font-display text-lg font-bold text-ink">
+                    {pool[0].name}
+                  </p>
+                  <p className="text-xs text-ink-muted">{pool[0].cuisine}</p>
+                  <button
+                    type="button"
+                    onClick={handleTakeOnlySpot}
+                    className="mt-4 rounded-2xl bg-lime px-8 py-3 font-display text-lg font-bold text-white shadow-sm transition hover:bg-lime-deep"
+                  >
+                    Take this spot
+                  </button>
                 </div>
               ) : (
                 <SpinWheel
                   candidates={candidates}
+                  winner={winner}
                   spinning={spinning}
                   targetIndex={targetIndex}
                   onSpinRequest={handleSpinRequest}

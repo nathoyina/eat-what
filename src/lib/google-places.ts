@@ -3,6 +3,12 @@ import {
   cuisineUsesTextSearch,
   googleTypesForFilters,
 } from "./cuisine-types";
+import { circleToViewport, isWithinRadiusKm } from "./geo";
+import {
+  fallbackTextQuery,
+  googlePriceLevels,
+  shouldSendPriceLevels,
+} from "./shortlist";
 import {
   matchesPriceFilter,
   type FoodKind,
@@ -33,7 +39,7 @@ type PlacesNearbyResponse = {
   error?: { message?: string; status?: string };
 };
 
-type PlaceResult = NonNullable<PlacesNearbyResponse["places"]>[number];
+export type PlaceResult = NonNullable<PlacesNearbyResponse["places"]>[number];
 
 /** Non-eateries that slip into Nearby/Text (malls with food courts, etc.). */
 const EXCLUDED_PRIMARY_TYPES = new Set([
@@ -153,6 +159,8 @@ const DRINK_SHOP_NEARBY_TYPES = [
   "sports_bar",
   "hookah_bar",
   "lounge_bar",
+  "brewpub",
+  "bar_and_grill",
 ] as const;
 
 /** Cafe = coffee; omit coffee_shop so kopitiams don't fill the 20-result cap. */
@@ -199,7 +207,7 @@ function nameLooksLikeSitDownRestaurant(primary: string): boolean {
   );
 }
 
-function classifyFoodKind(p: PlaceResult): FoodKind {
+export function classifyFoodKind(p: PlaceResult): FoodKind {
   const primary = p.primaryType ?? "";
   const types = p.types ?? [];
   const name = p.displayName?.text ?? "";
@@ -235,18 +243,30 @@ function isNamedFoodCourt(name: string): boolean {
   return /\bfood\s*(court|centre|center)\b/i.test(name);
 }
 
-function isMallPlace(p: PlaceResult): boolean {
-  const types = p.types ?? [];
+/**
+ * Mall *buildings* aren't makan. Tenants often inherit `shopping_mall` on
+ * types[] (Beutea @ Mapletree, Gong Cha Hillion) — dropping those emptied
+ * drinks / hawker shortlists inside malls.
+ */
+export function isMallPlace(p: PlaceResult): boolean {
   const name = p.displayName?.text ?? "";
   if (isNamedFoodCourt(name)) return false;
-  return (
-    types.includes("shopping_mall") ||
-    MALL_NAME_PATTERN.test(name) ||
-    NAMED_MALL_PATTERN.test(name)
-  );
+  if (
+    DRINK_CHAIN_NAME_PATTERN.test(name) ||
+    DRINK_NAME_PATTERN.test(name) ||
+    SNACK_NAME_PATTERN.test(name)
+  ) {
+    return false;
+  }
+  if (MALL_NAME_PATTERN.test(name)) return true;
+  // Bare mall titles Google sometimes types as food_court (e.g. "Hillion").
+  if (NAMED_MALL_PATTERN.test(name) && name.trim().split(/\s+/).length <= 2) {
+    return true;
+  }
+  return false;
 }
 
-function isNonEateryPlace(p: PlaceResult): boolean {
+export function isNonEateryPlace(p: PlaceResult): boolean {
   const primary = p.primaryType ?? "";
 
   if (primary && EXCLUDED_PRIMARY_TYPES.has(primary)) return true;
@@ -488,7 +508,7 @@ function priceRangeTextFromPlace(p: PlaceResult): string | undefined {
   return undefined;
 }
 
-function placesToRestaurants(
+export function placesToRestaurants(
   places: PlaceResult[],
   opts: {
     areaId: string;
@@ -525,18 +545,11 @@ function placesToRestaurants(
     const name = p.displayName.text;
     const address = p.formattedAddress ?? name;
     const placeId = p.id;
+    // Nearby already constrained by cuisine types. Do not drop on the mapped
+    // label — mistags like dumpling_restaurant → "Dumpling restaurant" were
+    // wiping Chinese shortlists even though Google returned them for Chinese.
     const cuisine =
       opts.forceCuisine ?? cuisineFromPlace(p, opts.selected);
-
-    if (
-      opts.selected.length > 0 &&
-      !opts.forceCuisine &&
-      !opts.selected.some(
-        (c) => c.toLowerCase() === cuisine.toLowerCase(),
-      )
-    ) {
-      continue;
-    }
 
     byId.set(placeId, {
       id: placeId,
@@ -812,4 +825,62 @@ export async function fetchNearbyFoodPlaces(opts: {
     priceFilter,
     foodKind: "meal",
   });
+}
+
+/**
+ * One Text Search when Nearby's mixed 20-hit set is too thin after price /
+ * kind filters. Restricted to a viewport around the same circle, then
+ * haversine-clipped so island-wide chains cannot leak in.
+ */
+export async function fetchThinShortlistFallback(opts: {
+  apiKey: string;
+  lat: number;
+  lng: number;
+  radiusMeters: number;
+  areaId: string;
+  areaName?: string;
+  cuisines?: string[];
+  priceFilter: PriceFilter;
+  foodKind: FoodKind;
+}): Promise<Restaurant[]> {
+  const foodKind = opts.foodKind;
+  const selected = foodKind === "meal" ? (opts.cuisines ?? []) : [];
+  const rectangle = circleToViewport(opts.lat, opts.lng, opts.radiusMeters);
+  const priceLevels = shouldSendPriceLevels(opts.priceFilter)
+    ? googlePriceLevels(opts.priceFilter)
+    : null;
+
+  const body: Record<string, unknown> = {
+    textQuery: fallbackTextQuery({
+      kind: foodKind,
+      cuisines: selected,
+      price: opts.priceFilter,
+      areaName: opts.areaName,
+    }),
+    maxResultCount: 20,
+    languageCode: "en",
+    regionCode: "SG",
+    locationRestriction: { rectangle },
+  };
+  if (priceLevels?.length) {
+    body.priceLevels = priceLevels;
+  }
+
+  const data = await callPlacesApi(opts.apiKey, "searchText", body);
+  const mapped = placesToRestaurants(data.places ?? [], {
+    areaId: opts.areaId,
+    selected,
+    forceCuisine:
+      foodKind === "meal" && selected.length === 1 && selected[0] !== "any"
+        ? selected[0]
+        : undefined,
+    textSearch: selected.length === 1 && selected[0] === "Salad",
+    priceFilter: "any",
+    foodKind,
+  });
+
+  const radiusKm = opts.radiusMeters / 1000;
+  return mapped.filter((r) =>
+    isWithinRadiusKm(opts.lat, opts.lng, r.lat, r.lng, radiusKm),
+  );
 }

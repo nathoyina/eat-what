@@ -173,14 +173,27 @@ export const PRICE_ESTIMATES: Record<PriceLevel, string> = {
   4: "~S$80+",
 };
 
+/** Same $–$$$$ string the reel shows. Null when Google has no band. */
+export function reelPriceSymbols(
+  level: PriceLevel | null | undefined,
+): string | null {
+  if (level == null) return null;
+  return PRICE_SYMBOLS[level];
+}
+
+/**
+ * ResultCard / saved list price. Uses the same symbols as the reel.
+ * Returns null when missing so UI can hide the row instead of "Price n/a".
+ */
 export function formatPriceLabel(
   level: PriceLevel | null | undefined,
   rangeText?: string,
-): string {
-  if (level == null) return "Price n/a";
-  const symbol = PRICE_SYMBOLS[level];
+): string | null {
+  const symbol = reelPriceSymbols(level);
+  if (symbol == null) return null;
   if (rangeText) return `${symbol} · ${rangeText}`;
-  return `${symbol} · ${PRICE_ESTIMATES[level]}`;
+  const estimate = PRICE_ESTIMATES[level as PriceLevel];
+  return estimate ? `${symbol} · ${estimate}` : symbol;
 }
 
 export function matchesPriceFilter(
