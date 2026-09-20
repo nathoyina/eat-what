@@ -99,7 +99,7 @@ export default function RootLayout({
           Skip to content
         </a>
         <Nav />
-        <main id="main" className="flex-1">
+        <main id="main" className="flex-1 bg-white">
           {children}
         </main>
       </body>
