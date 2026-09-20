@@ -135,8 +135,10 @@ export function usePlaces(request: SearchRequest | null): State & {
         };
         const places = data.places ?? [];
         if (places.length) memoryCache.set(key, places);
+        // Empty-with-message is a valid outcome (no key, quota, thin filters),
+        // not a fetch failure — keep status ready so the empty/thin UX shows.
         setState({
-          status: places.length || !data.message ? "ready" : "error",
+          status: "ready",
           places,
           message: data.message ?? null,
           source: data.source ?? null,

@@ -344,7 +344,7 @@ export function HomeApp() {
                     : ""}
                 </span>
               )}
-              {placesState.status === "ready" && pool.length === 0 && (
+              {placesState.status !== "loading" && pool.length === 0 && (
                 <span className="text-coral-soft">
                   {walkHint ??
                     placesState.message ??
