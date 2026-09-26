@@ -5,7 +5,11 @@ import {
   quietChipSelected,
   quietPrimaryCta,
 } from "@/lib/quiet-ui";
-import type { RecoveryUi } from "@/lib/shortlist";
+import {
+  TWO_SPOTS_COPY,
+  WIDEN_REACH_LABEL,
+  type RecoveryUi,
+} from "@/lib/shortlist";
 
 type EmptyProps = {
   ui: Extract<RecoveryUi, { variant: "empty" }>;
@@ -43,6 +47,28 @@ export function EmptySpotsPanel({ ui, onWidenReach, onAnyCuisine }: EmptyProps) 
         ) : null}
       </div>
     </section>
+  );
+}
+
+export function TwoSpotHint({
+  canWidenReach,
+  onWidenReach,
+}: {
+  canWidenReach: boolean;
+  onWidenReach: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 pt-1 text-center">
+      <p className="text-sm text-ink-muted">{TWO_SPOTS_COPY}</p>
+      <button
+        type="button"
+        onClick={onWidenReach}
+        disabled={!canWidenReach}
+        className={`${quietChipIdle} disabled:cursor-not-allowed disabled:opacity-40`}
+      >
+        {WIDEN_REACH_LABEL}
+      </button>
+    </div>
   );
 }
 

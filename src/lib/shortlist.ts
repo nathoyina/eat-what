@@ -113,6 +113,7 @@ export function walkThinMessage(opts: {
 /** Design Partner locked copy for 0/1 in-range spots (no reel). */
 export const EMPTY_SPOTS_COPY =
   "Not enough spots nearby. Widen reach or loosen cuisine.";
+export const TWO_SPOTS_COPY = "Only 2 spots nearby. Widen reach for more.";
 export const SINGLE_SPOT_HEADING = "Only one spot in range";
 export const SINGLE_SPOT_BODY = "No spin needed — this is your makan.";
 export const TAKE_THIS_SPOT_LABEL = "Take this spot";

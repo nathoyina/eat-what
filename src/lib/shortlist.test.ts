@@ -3,6 +3,7 @@ import {
   ANY_CUISINE_LABEL,
   applyRecoveryAction,
   EMPTY_SPOTS_COPY,
+  TWO_SPOTS_COPY,
   emptyPlacesMessage,
   fallbackTextQuery,
   googlePriceLevels,
@@ -144,6 +145,9 @@ describe("empty / single-spot recovery UX", () => {
   it("locks Design Partner copy for 0 and 1 in-range spots", () => {
     expect(EMPTY_SPOTS_COPY).toBe(
       "Not enough spots nearby. Widen reach or loosen cuisine.",
+    );
+    expect(TWO_SPOTS_COPY).toBe(
+      "Only 2 spots nearby. Widen reach for more.",
     );
     expect(SINGLE_SPOT_HEADING).toBe("Only one spot in range");
     expect(SINGLE_SPOT_BODY).toBe("No spin needed — this is your makan.");

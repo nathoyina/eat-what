@@ -21,7 +21,8 @@ type Props = {
   walkLabel?: string | null;
   saved: boolean;
   onSave: () => void;
-  onSpinAgain: () => void;
+  /** Hidden for a one-spot pool — there is nothing else to spin. */
+  onSpinAgain?: () => void;
 };
 
 function BookmarkIcon({ filled }: { filled: boolean }) {
@@ -234,13 +235,15 @@ export function ResultCard({
         </p>
       ) : null}
 
-      <button
-        type="button"
-        onClick={onSpinAgain}
-        className="w-full text-sm font-semibold text-ink-muted underline-offset-2 hover:text-ink hover:underline"
-      >
-        Spin again
-      </button>
+      {onSpinAgain ? (
+        <button
+          type="button"
+          onClick={onSpinAgain}
+          className="w-full text-sm font-semibold text-ink-muted underline-offset-2 hover:text-ink hover:underline"
+        >
+          Spin again
+        </button>
+      ) : null}
     </div>
   );
 }
