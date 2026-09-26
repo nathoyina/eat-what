@@ -9,8 +9,9 @@ import {
   REEL_VISIBLE,
   reelCenterOffset,
   reelDisplayIndex,
+  reelLandIndex,
 } from "@/lib/spin-reel";
-import { useEffect, useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 const SPIN_MS = 4200;
 
@@ -20,6 +21,8 @@ type Props = {
   winner?: Restaurant | null;
   spinning: boolean;
   targetIndex: number | null;
+  /** Increments on every spin request so a repeat index still travels forward. */
+  spinId: number;
   onSpinEnd: (winner: Restaurant) => void;
   onSpinRequest: () => void;
   disabled?: boolean;
@@ -35,6 +38,7 @@ export function SpinWheel({
   winner = null,
   spinning,
   targetIndex,
+  spinId,
   onSpinEnd,
   onSpinRequest,
   disabled,
@@ -43,18 +47,61 @@ export function SpinWheel({
   const winnerId = winner?.id ?? null;
   const n = candidates.length;
 
+  const [shown, setShown] = useState(0);
+  const [animate, setAnimate] = useState(false);
+  const shownRef = useRef(0);
+  const handledSpinRef = useRef<number | null>(null);
+  const listKeyRef = useRef(candidatesKey);
+
+  useLayoutEffect(() => {
+    if (listKeyRef.current !== candidatesKey) {
+      listKeyRef.current = candidatesKey;
+      handledSpinRef.current = null;
+      shownRef.current = 0;
+      setShown(0);
+      setAnimate(false);
+    }
+
+    if (n > 0 && spinning && targetIndex != null) {
+      if (handledSpinRef.current === spinId) return;
+      handledSpinRef.current = spinId;
+      const land = reelLandIndex(n, targetIndex, REEL_LOOPS, shownRef.current);
+      shownRef.current = land;
+      setShown(land);
+      setAnimate(true);
+      return;
+    }
+
+    setAnimate(false);
+    if (n === 0) {
+      shownRef.current = 0;
+      setShown(0);
+      return;
+    }
+    const idle = reelDisplayIndex({
+      candidates,
+      targetIndex,
+      spinning: false,
+      winnerId,
+      fromIndex: shownRef.current,
+    });
+    shownRef.current = idle;
+    setShown(idle);
+  }, [candidates, candidatesKey, n, spinId, spinning, targetIndex, winnerId]);
+
+  const displayIndex = shown;
+  const copies =
+    n === 0
+      ? 0
+      : Math.max(REEL_LOOPS + 2, Math.ceil((displayIndex + 2) / n) + 1);
+
   const strip = useMemo(() => {
     if (n === 0) return [];
-    return Array.from({ length: REEL_LOOPS + 2 }, () => candidates).flat();
+    return Array.from({ length: copies }, () => candidates).flat();
+    // Strip contents follow the candidate ids; `copies` grows only to fit the land index.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candidatesKey]);
+  }, [candidatesKey, copies]);
 
-  const displayIndex = reelDisplayIndex({
-    candidates,
-    targetIndex,
-    spinning,
-    winnerId,
-  });
   const offsetY = reelCenterOffset(displayIndex);
 
   useEffect(() => {
@@ -65,7 +112,7 @@ export function SpinWheel({
       onSpinEnd(chosen);
     }, SPIN_MS);
     return () => window.clearTimeout(timeout);
-  }, [spinning, targetIndex, n, candidates, onSpinEnd]);
+  }, [spinning, targetIndex, spinId, n, candidates, onSpinEnd]);
 
   const viewportH = REEL_ITEM_H * REEL_VISIBLE;
 
@@ -98,7 +145,7 @@ export function SpinWheel({
           <div
             style={{
               transform: `translateY(${offsetY}px)`,
-              transition: spinning
+              transition: animate
                 ? `transform ${SPIN_MS}ms cubic-bezier(0.12, 0.75, 0.08, 1)`
                 : "none",
             }}

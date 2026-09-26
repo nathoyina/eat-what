@@ -3,7 +3,11 @@
 import { FilterBar } from "@/components/FilterBar";
 import { LocationPicker } from "@/components/LocationPicker";
 import { ResultCard } from "@/components/ResultCard";
-import { EmptySpotsPanel, SingleSpotPanel } from "@/components/SpotCountRecovery";
+import {
+  EmptySpotsPanel,
+  SingleSpotPanel,
+  TwoSpotHint,
+} from "@/components/SpotCountRecovery";
 import { SpinWheel } from "@/components/SpinWheel";
 import { useSavedIdSet } from "@/lib/hooks";
 import { areas, locationChipLabel, filterRestaurants, pickWheelCandidates } from "@/lib/restaurants";
@@ -14,9 +18,11 @@ import {
 import {
   MIN_WHEEL_CANDIDATES,
   applyRecoveryAction,
+  nextWiderReach,
   recoveryUi,
   type RecoveryAction,
 } from "@/lib/shortlist";
+import { pickSpinWinner } from "@/lib/spin-reel";
 import { saveSpot } from "@/lib/storage";
 import type { Filters, LocationMode, Restaurant } from "@/lib/types";
 import { toCompleteFilters, withActivationDefaults } from "@/lib/types";
@@ -40,6 +46,7 @@ export function HomeApp() {
   );
   const [reshuffle, setReshuffle] = useState(0);
   const [spinning, setSpinning] = useState(false);
+  const [spinId, setSpinId] = useState(0);
   const [targetIndex, setTargetIndex] = useState<number | null>(null);
   const [winner, setWinner] = useState<Restaurant | null>(null);
   const [editingLocation, setEditingLocation] = useState(false);
@@ -132,9 +139,11 @@ export function HomeApp() {
 
   const handleSpinRequest = () => {
     if (candidates.length < MIN_WHEEL_CANDIDATES || spinning) return;
-    const idx = Math.floor(Math.random() * candidates.length);
+    const pick = pickSpinWinner(candidates, { excludeId: winner?.id ?? null });
+    if (!pick) return;
+    setSpinId((id) => id + 1);
     setWinner(null);
-    setTargetIndex(idx);
+    setTargetIndex(pick.index);
     setSpinning(true);
   };
 
@@ -160,12 +169,6 @@ export function HomeApp() {
       googleMapsUri: winner.googleMapsUri,
       savedAt: new Date().toISOString(),
     });
-  };
-
-  const handleSpinAgain = () => {
-    setWinner(null);
-    setTargetIndex(null);
-    setReshuffle((n) => n + 1);
   };
 
   if (!started) {
@@ -398,10 +401,20 @@ export function HomeApp() {
                     candidates={candidates}
                     winner={winner}
                     spinning={spinning}
+                    spinId={spinId}
                     targetIndex={targetIndex}
                     onSpinRequest={handleSpinRequest}
                     onSpinEnd={handleSpinEnd}
                   />
+                  {pool.length === 2 && searchRequest ? (
+                    <TwoSpotHint
+                      canWidenReach={
+                        !spinning &&
+                        nextWiderReach(searchRequest.filters) !== null
+                      }
+                      onWidenReach={() => handleRecovery("widen-reach")}
+                    />
+                  ) : null}
                 </>
               )}
             </section>
@@ -416,7 +429,7 @@ export function HomeApp() {
               )}
               saved={savedIds.has(winner.id)}
               onSave={handleSave}
-              onSpinAgain={handleSpinAgain}
+              onSpinAgain={pool.length >= 2 ? handleSpinRequest : undefined}
             />
           )}
         </>

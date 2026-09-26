@@ -65,21 +65,29 @@ export function filterRestaurants(
   return results;
 }
 
-/** Pick up to `count` random restaurants for the wheel */
+/**
+ * Pick up to `count` restaurants for the wheel.
+ * Shuffle the whole pool first so the shortlist is not the nearest prefix
+ * of a distance-ranked Places response.
+ */
 export function pickWheelCandidates(
   pool: Restaurant[],
   count = 10,
+  random: () => number = Math.random,
 ): Restaurant[] {
-  if (pool.length <= count) {
-    return shuffle([...pool]);
-  }
-  return shuffle([...pool]).slice(0, count);
+  const shuffled = shuffle([...pool], random);
+  if (shuffled.length <= count) return shuffled;
+  return shuffled.slice(0, count);
 }
 
-function shuffle<T>(arr: T[]): T[] {
+function shuffle<T>(arr: T[], random: () => number): T[] {
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+    const j = Math.floor(random() * (i + 1));
+    const current = arr[i];
+    const swap = arr[j];
+    if (current === undefined || swap === undefined) continue;
+    arr[i] = swap;
+    arr[j] = current;
   }
   return arr;
 }

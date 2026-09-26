@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { mulberry32 } from "./random";
 import { filterRestaurants, locationChipLabel, pickWheelCandidates } from "./restaurants";
 import { MIN_WHEEL_CANDIDATES } from "./shortlist";
+import { pickSpinWinner } from "./spin-reel";
 import type { CompleteFilters, Restaurant } from "./types";
 
 const orchard = { lat: 1.3048, lng: 103.8318 };
@@ -69,6 +71,36 @@ describe("pickWheelCandidates", () => {
 
   it("does not invent extra names when the pool is a single place", () => {
     expect(pickWheelCandidates([spot("only", 1.3, 103.8)], 10)).toHaveLength(1);
+  });
+
+  it("is not stuck on the distance-ranked prefix, and first picks spread across the pool", () => {
+    const pool = Array.from({ length: 20 }, (_, i) => spot(`p${i}`, 1.3, 103.8));
+    const prefix = pool
+      .slice(0, 10)
+      .map((place) => place.id)
+      .join("|");
+    const rng = mulberry32(42);
+    const wins = new Array<number>(pool.length).fill(0);
+    const trials = 4000;
+    let sawDifferentOrder = false;
+    for (let trial = 0; trial < trials; trial++) {
+      const shortlist = pickWheelCandidates(pool, 10, rng);
+      if (shortlist.map((place) => place.id).join("|") !== prefix) {
+        sawDifferentOrder = true;
+      }
+      const pick = pickSpinWinner(shortlist, { random: rng });
+      const index = pool.findIndex((place) => place.id === pick?.winner.id);
+      expect(index).toBeGreaterThanOrEqual(0);
+      const tally = wins[index];
+      if (tally === undefined) throw new Error("missing tally");
+      wins[index] = tally + 1;
+    }
+    expect(sawDifferentOrder).toBe(true);
+    const expected = trials / pool.length;
+    for (const count of wins) {
+      expect(count).toBeGreaterThan(expected * 0.65);
+      expect(count).toBeLessThan(expected * 1.45);
+    }
   });
 });
 
